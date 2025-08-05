@@ -24,10 +24,17 @@
 .DS_Store
 *.pem
 
+# local env files
+.env
+.env*.local
+
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# uploads
+/public/uploads
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
@@ -39,3 +46,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma

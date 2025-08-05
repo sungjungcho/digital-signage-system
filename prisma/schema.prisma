@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Device {
+  id            String          @id @default(uuid())
+  name          String
+  location      String
+  status        String         @default("offline") // "online" | "offline"
+  lastConnected DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contents      DeviceContent[]
+}
+
+model DeviceContent {
+  id        String   @id @default(uuid())
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id])
+  type      String   // "image" | "video" | "text"
+  url       String?
+  text      String?
+  duration  Int
+  fontSize  String?
+  fontColor String?
+  backgroundColor String?
+  alt       String?
+  autoplay  Boolean? @default(false)
+  loop      Boolean? @default(false)
+  muted     Boolean? @default(true)
+  order     Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deviceId])
+}
