@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Device, DeviceContent } from '@/types/device';
+import type { device as Device, devicecontent as DeviceContent } from '@/types/device';
 
 interface ContentManagerProps {
   device: Device;

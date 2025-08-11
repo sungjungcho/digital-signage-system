@@ -1,4 +1,4 @@
-export type Device = {
+export type device = {
   id: string;
   name: string;
   location: string;
@@ -8,7 +8,7 @@ export type Device = {
   updatedAt: string;
 };
 
-export type DeviceContent = {
+export type devicecontent = {
   id: string;
   deviceId: string;
   type: 'image' | 'video' | 'text';

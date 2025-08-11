@@ -1,14 +1,51 @@
 'use client';
 
+
 import ContentSlideShow from '@/components/ContentSlideShow';
 import { useDeviceContent } from '@/lib/hooks';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { use } from 'react';
+
+type Alert = {
+  id: string;
+  message: string;
+  targetDeviceIds: string[];
+  createdAt: string;
+  expiresAt?: string;
+};
 
 export default function DeviceDisplay({ params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = use(params);
   const [deviceName, setDeviceName] = useState<string>('');
   const { contents, isLoading, error } = useDeviceContent(deviceId);
+  // 알림 모달 상태
+  const [alert, setAlert] = useState<Alert | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  // WebSocket 연결 및 알림 수신
+  useEffect(() => {
+    if (!deviceId) return;
+    const ws = new window.WebSocket(`ws://${window.location.hostname}:3031?deviceId=${deviceId}`);
+    wsRef.current = ws;
+    ws.onmessage = (event: MessageEvent) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (data.type === "alert" && data.alert) {
+        setAlert(data.alert);
+      } else if (data.type === "init" && data.alerts && Array.isArray(data.alerts)) {
+        if (data.alerts.length > 0) setAlert(data.alerts[data.alerts.length - 1]);
+      }
+    };
+    ws.onclose = () => {
+      wsRef.current = null;
+    };
+    return () => {
+      ws.close();
+    };
+  }, [deviceId]);
 
   // 디바이스 정보 가져오기
   useEffect(() => {
@@ -84,8 +121,19 @@ export default function DeviceDisplay({ params }: { params: Promise<{ deviceId: 
 
   const displayContents = contents.length > 0 ? contents : defaultContents;
 
+  // 알림이 있으면 모달 형태로 중앙에 표시
+  const alertModal = alert ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+      <div className="bg-white rounded-lg shadow-2xl px-10 py-8 max-w-lg w-full flex flex-col items-center animate-pulse border-4 border-red-600">
+        <div className="text-3xl font-bold text-red-700 mb-4">긴급 알림</div>
+        <div className="text-xl text-gray-900 text-center mb-6 whitespace-pre-line break-words">{alert.message}</div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="w-screen h-screen bg-black text-white">
+      {alertModal}
       <main className="w-full h-full">
         <ContentSlideShow contents={displayContents} />
       </main>

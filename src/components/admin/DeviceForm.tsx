@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Device } from '@/types/device';
+import type { device as Device } from '@/types/device';
 
 interface DeviceFormProps {
   onDeviceAdded: () => void;

@@ -1,20 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Device } from '@/types/device';
+import { device } from '@/types/device';
+
 import DeviceList from '@/components/admin/DeviceList';
 import DeviceForm from '@/components/admin/DeviceForm';
 import ContentManager from '@/components/admin/ContentManager';
 
+type AlertForm = {
+  message: string;
+  targetDeviceIds: string[];
+};
+
 export default function AdminPage() {
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<device | null>(null);
+  const [devices, setDevices] = useState<device[]>([]);
+  // 알림 관련 상태
+  const [alertForm, setAlertForm] = useState<AlertForm>({ message: '', targetDeviceIds: [] });
+  const [sending, setSending] = useState(false);
+  const [alertResult, setAlertResult] = useState<string | null>(null);
 
   const fetchDevices = async () => {
     try {
       const response = await fetch('/api/devices');
       const data = await response.json();
-      
       if (Array.isArray(data)) {
         setDevices(data);
       }
@@ -33,9 +42,83 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="h-screen overflow-y-auto bg-gray-100 p-4">
       <h1 className="text-2xl font-bold mb-6">디지털 사이니지 관리자</h1>
-      
+
+      {/* 알림 전송 섹션 */}
+      <div className="bg-white rounded-lg shadow p-4 mb-8">
+        <h2 className="text-xl font-semibold mb-4">긴급 알림 전송</h2>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setSending(true);
+            setAlertResult(null);
+            try {
+              const res = await fetch('/api/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  message: alertForm.message,
+                  targetDeviceIds: alertForm.targetDeviceIds,
+                }),
+              });
+              if (res.ok) {
+                setAlertResult('알림이 성공적으로 전송되었습니다.');
+                setAlertForm({ message: '', targetDeviceIds: [] });
+              } else {
+                setAlertResult('알림 전송에 실패했습니다.');
+              }
+            } catch (err) {
+              setAlertResult('알림 전송 중 오류 발생');
+            } finally {
+              setSending(false);
+            }
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block font-medium mb-1">알림 내용</label>
+            <textarea
+              className="w-full border rounded p-2"
+              rows={2}
+              value={alertForm.message}
+              onChange={e => setAlertForm(f => ({ ...f, message: e.target.value }))}
+              required
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1">대상 디바이스 선택</label>
+            <div className="flex flex-wrap gap-2">
+              {devices.map(device => (
+                <label key={device.id} className="flex items-center space-x-1 border rounded px-2 py-1">
+                  <input
+                    type="checkbox"
+                    checked={alertForm.targetDeviceIds.includes(device.id)}
+                    onChange={e => {
+                      setAlertForm(f => {
+                        const ids = f.targetDeviceIds.includes(device.id)
+                          ? f.targetDeviceIds.filter(id => id !== device.id)
+                          : [...f.targetDeviceIds, device.id];
+                        return { ...f, targetDeviceIds: ids };
+                      });
+                    }}
+                  />
+                  <span>{device.name} ({device.location})</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+            disabled={sending || !alertForm.message || alertForm.targetDeviceIds.length === 0}
+          >
+            {sending ? '전송 중...' : '알림 전송'}
+          </button>
+          {alertResult && <div className="mt-2 text-sm text-gray-700">{alertResult}</div>}
+        </form>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 디바이스 관리 섹션 */}
         <div className="bg-white rounded-lg shadow p-4">

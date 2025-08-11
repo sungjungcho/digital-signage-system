@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Device } from '@/types/device';
+import type { device as Device } from '@/types/device';
 
 interface DeviceListProps {
   devices: Device[];
