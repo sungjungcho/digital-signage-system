@@ -5,18 +5,31 @@ import { alerts, Alert } from './alertStore';
 const deviceSockets: Map<string, WebSocket> = new Map();
 
 // WebSocket 서버 인스턴스 (포트 3031)
-// 이미 인스턴스가 있으면 새로 만들지 않음 (Next.js import 방지)
+// Next.js에서 import되어도 중복 실행 방지
 let wss: WebSocketServer;
 if (!(globalThis as any).wss) {
-  wss = new WebSocketServer({ port: 3031 });
-  (globalThis as any).wss = wss;
+  try {
+    wss = new WebSocketServer({ port: 3031, host: '0.0.0.0' }); // 모든 네트워크에서 접근 가능
+    (globalThis as any).wss = wss;
+    console.log('WebSocket 서버 새로 생성됨');
+  } catch (err) {
+    console.log('WebSocket 서버 생성 실패:', err);
+    // 기존 서버가 있다면 재사용
+    if ((globalThis as any).wss) {
+      wss = (globalThis as any).wss;
+    } else {
+      throw err;
+    }
+  }
 
   wss.on('connection', (ws: WebSocket, req: any) => {
     // 디바이스 ID는 쿼리스트링으로 전달 (예: ws://host:3031?deviceId=xxx)
-    const url = new URL(req.url || '', `http://${req.headers.host}`);
-    const deviceId = url.searchParams.get('deviceId');
-    console.log('WebSocket 연결됨:', deviceId);
-    console.log('WebSocket 연결됨2:', req.url);
+  // req.url이 /?deviceId=xxx 또는 ?deviceId=xxx 모두 지원
+  let urlString = req.url || '';
+  if (!urlString.startsWith('/')) urlString = '/' + urlString;
+  const url = new URL(urlString, `http://${req.headers.host}`);
+  const deviceId = url.searchParams.get('deviceId');
+    console.log('WebSocket 연결됨:', deviceId, req.url);
     if (!deviceId) {
       ws.close(1008, 'deviceId required');
       return;
@@ -31,7 +44,12 @@ if (!(globalThis as any).wss) {
 
     ws.on('close', () => {
       deviceSockets.delete(deviceId);
+      console.log('WebSocket 연결 해제:', deviceId);
     });
+  });
+
+  wss.on('listening', () => {
+    console.log('WebSocket 서버가 3031 포트에서 실행 중입니다.');
   });
 } else {
   wss = (globalThis as any).wss;
@@ -49,6 +67,17 @@ export function broadcastAlertToDevices(alert: Alert) {
       console.log(`연결 없음: ${deviceId}`);
     }
   });
+}
+
+// 단일 디바이스에 알림 닫기 메시지 전송
+export function broadcastCloseAlertToDevice(deviceId: string) {
+  const ws = deviceSockets.get(deviceId);
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'closeAlert' }));
+    console.log(`알림 닫기 전송: ${deviceId}`);
+  } else {
+    console.log(`알림 닫기: 연결 없음: ${deviceId}`);
+  }
 }
 
 export { wss, deviceSockets };

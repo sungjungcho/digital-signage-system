@@ -18,11 +18,26 @@ export default function ContentManager({ device }: ContentManagerProps) {
     fontColor: '#ffffff',
     backgroundColor: '#000000',
   });
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   // 디바이스가 선택되면 해당 디바이스의 콘텐츠 목록을 가져옴
   useEffect(() => {
     if (device) {
-      fetchContents();
+      fetchContents().then((fetchedContents) => {
+        if (fetchedContents && fetchedContents.length > 0) {
+          setContentType(fetchedContents[0].type);
+        } else {
+          setContentType('text');
+        }
+        setEditingTextId(null);
+        setTextContent({
+          text: '',
+          duration: 5000,
+          fontSize: '2rem',
+          fontColor: '#ffffff',
+          backgroundColor: '#000000',
+        });
+      });
     }
   }, [device]);
 
@@ -33,6 +48,22 @@ export default function ContentManager({ device }: ContentManagerProps) {
     if (!files) return;
     setSelectedFile(files[0]);
   };
+    // 콘텐츠 삭제 함수
+    const handleDeleteContent = async (contentId: string) => {
+      try {
+        const response = await fetch(`/api/devices/${device.id}/contents/${contentId}`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          fetchContents(); // 삭제 후 목록 새로고침
+        } else {
+          alert('콘텐츠 삭제에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('콘텐츠 삭제 중 오류 발생:', error);
+        alert('오류가 발생했습니다.');
+      }
+    };
 
   const handleFileUpload = async () => {
     if (!selectedFile) return;
@@ -63,18 +94,31 @@ export default function ContentManager({ device }: ContentManagerProps) {
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // TODO: 실제 API 호출로 대체
-      const response = await fetch('/api/contents/text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deviceId: device.id,
-          ...textContent,
-        }),
-      });
-
+      let response;
+      if (editingTextId) {
+        // 수정
+        response = await fetch(`/api/devices/${device.id}/contents/${editingTextId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...textContent,
+          }),
+        });
+      } else {
+        // 신규 등록
+        response = await fetch('/api/contents/text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deviceId: device.id,
+            ...textContent,
+          }),
+        });
+      }
       if (response.ok) {
         setTextContent({
           text: '',
@@ -83,24 +127,23 @@ export default function ContentManager({ device }: ContentManagerProps) {
           fontColor: '#ffffff',
           backgroundColor: '#000000',
         });
-        // TODO: 콘텐츠 목록 새로고침
+        setEditingTextId(null);
         fetchContents();
       }
     } catch (error) {
-      console.error('텍스트 콘텐츠 등록 중 오류 발생:', error);
+      console.error('텍스트 콘텐츠 등록/수정 중 오류 발생:', error);
     }
   };
 
   const fetchContents = async () => {
     try {
-      console.log('콘텐츠 목록 가져오기 시작:', device.id);
       const response = await fetch(`/api/devices/${device.id}/contents`);
       const data = await response.json();
-      console.log('가져온 콘텐츠 데이터:', data);
       setContents(data);
+      return data;
     } catch (error) {
-      console.error('콘텐츠 목록을 가져오는 중 오류 발생:', error);
       setContents([]);
+      return [];
     }
   };
 
@@ -138,7 +181,17 @@ export default function ContentManager({ device }: ContentManagerProps) {
         <div className="mt-4">
           <select
             value={contentType}
-            onChange={(e) => setContentType(e.target.value as 'image' | 'video' | 'text')}
+            onChange={(e) => {
+              setContentType(e.target.value as 'image' | 'video' | 'text');
+              setEditingTextId(null);
+              setTextContent({
+                text: '',
+                duration: 5000,
+                fontSize: '2rem',
+                fontColor: '#ffffff',
+                backgroundColor: '#000000',
+              });
+            }}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           >
             <option value="text">텍스트</option>
@@ -252,7 +305,20 @@ export default function ContentManager({ device }: ContentManagerProps) {
             contents.map((content) => (
               <div
                 key={content.id}
-                className="flex items-center justify-between border rounded-lg p-4"
+                className="flex items-center justify-between border rounded-lg p-4 cursor-pointer"
+                onClick={() => {
+                  if (content.type === 'text') {
+                    setContentType('text');
+                    setTextContent({
+                      text: content.text ?? '',
+                      duration: content.duration ?? 5000,
+                      fontSize: content.fontSize ?? '2rem',
+                      fontColor: content.fontColor ?? '#ffffff',
+                      backgroundColor: content.backgroundColor ?? '#000000',
+                    });
+                    setEditingTextId(content.id);
+                  }
+                }}
               >
                 <div className="space-y-2 flex-grow mr-4">
                   {content.type === 'text' ? (
@@ -284,14 +350,20 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     <span className="ml-3">순서: {content.order + 1}번째</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    // TODO: 콘텐츠 삭제 기능 구현
-                  }}
-                  className="text-red-600 hover:text-red-800"
-                >
-                  삭제
-                </button>
+                <div className="flex items-center gap-4">
+                  {/* 수정 기능 제거됨 */}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (window.confirm('정말로 삭제하시겠습니까?')) {
+                        handleDeleteContent(content.id);
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             ))
           ) : (

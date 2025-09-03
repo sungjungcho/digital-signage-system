@@ -4,11 +4,11 @@ import { broadcastAlertToDevices } from '@/lib/wsServer';
 
 // POST /api/alerts
 export async function POST(req: NextRequest) {
-  const { message, targetDeviceIds, expiresAt } = await req.json();
+  const { message, targetDeviceIds, expiresAt, duration } = await req.json();
   if (!message || !Array.isArray(targetDeviceIds) || targetDeviceIds.length === 0) {
     return NextResponse.json({ error: 'message, targetDeviceIds required' }, { status: 400 });
   }
-  const alert = addAlert(message, targetDeviceIds, expiresAt ? new Date(expiresAt) : undefined);
+  const alert = addAlert(message, targetDeviceIds, expiresAt ? new Date(expiresAt) : undefined, duration);
   // WebSocket 브로드캐스트
   broadcastAlertToDevices(alert);
   return NextResponse.json(alert);

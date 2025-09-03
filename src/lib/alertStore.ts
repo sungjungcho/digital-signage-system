@@ -7,18 +7,25 @@ export type Alert = {
   targetDeviceIds: string[];
   createdAt: Date;
   expiresAt?: Date;
+  duration?: number;
 };
 
 // 인메모리 알림 저장소
 const alerts: Alert[] = [];
 
-export function addAlert(message: string, targetDeviceIds: string[], expiresAt?: Date): Alert {
+export function addAlert(message: string, targetDeviceIds: string[], expiresAt?: Date, duration?: number): Alert {
+  const createdAt = new Date();
+  let finalExpiresAt = expiresAt;
+  if (duration && !expiresAt) {
+    finalExpiresAt = new Date(createdAt.getTime() + duration);
+  }
   const alert: Alert = {
     id: uuidv4(),
     message,
     targetDeviceIds,
-    createdAt: new Date(),
-    expiresAt,
+    createdAt,
+    expiresAt: finalExpiresAt,
+    duration,
   };
   alerts.push(alert);
   return alert;

@@ -1,12 +1,14 @@
 {
   "name": "digital-signage-system",
   "version": "0.1.0",
-  "private": true,  
+  "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "ws-server": "npx ts-node wsServerEntry.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run ws-server\""
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",
