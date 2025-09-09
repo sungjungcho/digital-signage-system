@@ -10,7 +10,7 @@ interface ContentManagerProps {
 export default function ContentManager({ device }: ContentManagerProps) {
   const [contents, setContents] = useState<DeviceContent[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [contentType, setContentType] = useState<'image' | 'video' | 'text'>('text');
+  const [contentType, setContentType] = useState<'image' | 'video' | 'text' | 'split_layout'>('text');
   const [textContent, setTextContent] = useState({
     text: '',
     duration: 5000,
@@ -182,7 +182,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
           <select
             value={contentType}
             onChange={(e) => {
-              setContentType(e.target.value as 'image' | 'video' | 'text');
+              setContentType(e.target.value as 'image' | 'video' | 'text' | 'split_layout');
               setEditingTextId(null);
               setTextContent({
                 text: '',
@@ -197,10 +197,43 @@ export default function ContentManager({ device }: ContentManagerProps) {
             <option value="text">텍스트</option>
             <option value="image">이미지</option>
             <option value="video">비디오</option>
+            <option value="split_layout">분할 레이아웃 (좌측: 콘텐츠, 우측: 날짜/환자명단)</option>
           </select>
         </div>
 
-        {contentType === 'text' ? (
+        {contentType === 'split_layout' ? (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-800 mb-2">분할 레이아웃 설정</h4>
+            <p className="text-sm text-blue-600 mb-4">
+              이 레이아웃은 화면을 좌측(콘텐츠)과 우측(날짜/시간 + 대기환자 명단)으로 분할합니다.
+              좌측에는 기존에 등록된 모든 콘텐츠가 순환 표시되고, 우측에는 실시간 정보가 표시됩니다.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/contents/split-layout', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      deviceId: device.id,
+                      duration: 10000, // 10초간 표시
+                    }),
+                  });
+                  if (response.ok) {
+                    fetchContents();
+                  }
+                } catch (error) {
+                  console.error('분할 레이아웃 콘텐츠 등록 중 오류 발생:', error);
+                }
+              }}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              분할 레이아웃 추가
+            </button>
+          </div>
+        ) : contentType === 'text' ? (
           <form onSubmit={handleTextSubmit} className="mt-4 space-y-4">
             <div>
               <label htmlFor="text" className="block text-sm font-medium text-gray-700">
@@ -328,6 +361,14 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         <span className="text-gray-600">글자 크기: {content.fontSize}</span>
                         <span className="text-gray-600">글자 색상: {content.fontColor}</span>
                         <span className="text-gray-600">배경 색상: {content.backgroundColor}</span>
+                      </div>
+                    </>
+                  ) : content.type === 'split_layout' ? (
+                    <>
+                      <p className="font-medium break-words">분할 레이아웃</p>
+                      <div className="flex flex-wrap gap-2 text-sm">
+                        <span className="text-gray-600">좌측: 기존 콘텐츠</span>
+                        <span className="text-gray-600">우측: 날짜/시간 + 대기환자</span>
                       </div>
                     </>
                   ) : (

@@ -6,6 +6,7 @@ import { device } from '@/types/device';
 import DeviceList from '@/components/admin/DeviceList';
 import DeviceForm from '@/components/admin/DeviceForm';
 import ContentManager from '@/components/admin/ContentManager';
+import PatientManager from '@/components/admin/PatientManager';
 
 type AlertForm = {
   message: string;
@@ -91,13 +92,28 @@ export default function AdminPage() {
           </div>
           <div>
             <label className="block font-medium mb-1">대상 디바이스 선택</label>
+            <div className="mb-2">
+              <label className="inline-flex items-center space-x-1 border rounded px-1 py-1 bg-gray-50 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={alertForm.targetDeviceIds.length === devices.length}
+                  onChange={e => {
+                    setAlertForm(f => ({
+                      ...f,
+                      targetDeviceIds: e.target.checked ? devices.map(d => d.id) : []
+                    }));
+                  }}
+                />
+                <span>전체</span>
+              </label>
+            </div>
             <div className="flex flex-wrap gap-2">
               {devices.map(device => (
                 <label key={device.id} className="flex items-center space-x-1 border rounded px-2 py-1">
                   <input
                     type="checkbox"
                     checked={alertForm.targetDeviceIds.includes(device.id)}
-                    onChange={e => {
+                    onChange={() => {
                       setAlertForm(f => {
                         const ids = f.targetDeviceIds.includes(device.id)
                           ? f.targetDeviceIds.filter(id => id !== device.id)
@@ -160,13 +176,17 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* 디바이스 관리 섹션 */}
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="text-xl font-semibold mb-4">디바이스 관리</h2>
           <DeviceForm onDeviceAdded={handleDeviceAdded} />
           <div className="mt-6">
-            <DeviceList devices={devices} onDeviceSelect={setSelectedDevice} />
+            <DeviceList 
+              devices={devices} 
+              onDeviceSelect={setSelectedDevice}
+              onDeviceDeleted={fetchDevices}
+            />
           </div>
         </div>
 
@@ -174,8 +194,8 @@ export default function AdminPage() {
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">콘텐츠 관리</h2>
-            <div className="flex space-x-2 items-center w-2/3">
-              <div className="flex-1">
+            <div className="flex space-x-2 items-center">
+              <div className="min-w-[200px]">
                 <select 
                   value={selectedDevice?.id || ''} 
                   onChange={(e) => {
@@ -183,11 +203,11 @@ export default function AdminPage() {
                     const device = devices.find(d => d.id === deviceId);
                     setSelectedDevice(device || null);
                   }}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                 >
                   <option value="">디바이스 선택</option>
                   {devices.map(device => (
-                    <option key={device.id} value={device.id}>{device.name} ({device.location})</option>
+                    <option key={device.id} value={device.id}>{device.name}</option>
                   ))}
                 </select>
               </div>
@@ -196,12 +216,12 @@ export default function AdminPage() {
                     href={`/display/${selectedDevice.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                    title="미리보기"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    미리보기
                   </a>
               )}
             </div>
@@ -213,6 +233,11 @@ export default function AdminPage() {
           ) : (
             <p className="text-gray-500">디바이스를 선택해주세요.</p>
           )}
+        </div>
+
+        {/* 환자 명단 관리 섹션 */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <PatientManager />
         </div>
       </div>
     </div>

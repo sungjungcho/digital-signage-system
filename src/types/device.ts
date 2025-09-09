@@ -11,7 +11,7 @@ export type device = {
 export type devicecontent = {
   id: string;
   deviceId: string;
-  type: 'image' | 'video' | 'text';
+  type: 'image' | 'video' | 'text' | 'split_layout';
   url?: string;
   text?: string;
   duration: number;

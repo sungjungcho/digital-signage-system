@@ -1,5 +1,5 @@
 // 콘텐츠 타입 정의
-export type ContentType = 'image' | 'video' | 'text';
+export type ContentType = 'image' | 'video' | 'text' | 'split_layout';
 
 // 기본 콘텐츠 인터페이스
 export interface BaseContent {
@@ -35,8 +35,14 @@ export interface TextContent extends BaseContent {
   backgroundColor?: string;
 }
 
+// 분할 레이아웃 콘텐츠 (좌측: 기존 콘텐츠, 우측: 날짜/시간 + 대기환자)
+export interface SplitLayoutContent extends BaseContent {
+  type: 'split_layout';
+  leftContents: Content[]; // 좌측에 표시할 콘텐츠들
+}
+
 // 통합 콘텐츠 타입
-export type Content = ImageContent | VideoContent | TextContent;
+export type Content = ImageContent | VideoContent | TextContent | SplitLayoutContent;
 
 // 요일 타입
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;

@@ -1,10 +1,12 @@
-import { Content, ImageContent, VideoContent, TextContent } from '@/types';
+import { Content, ImageContent, VideoContent, TextContent, SplitLayoutContent } from '@/types';
+import SplitLayoutDisplay from './SplitLayoutDisplay';
 
 interface DisplayContentProps {
   content: Content;
+  deviceId?: string;
 }
 
-export default function DisplayContent({ content }: DisplayContentProps) {
+export default function DisplayContent({ content, deviceId = '' }: DisplayContentProps) {
   switch (content.type) {
     case 'image':
       return (
@@ -44,6 +46,14 @@ export default function DisplayContent({ content }: DisplayContentProps) {
             {textContent.text}
           </div>
         </div>
+      );
+    case 'split_layout':
+      const splitContent = content as SplitLayoutContent;
+      return (
+        <SplitLayoutDisplay 
+          contents={splitContent.leftContents} 
+          deviceId={deviceId}
+        />
       );
     default:
       return null;

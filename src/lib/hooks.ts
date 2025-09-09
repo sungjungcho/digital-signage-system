@@ -31,6 +31,12 @@ export function useDeviceContent(deviceId: string) {
   const [contents, setContents] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // 수동으로 새로고침하는 함수
+  const refreshContents = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -48,22 +54,45 @@ export function useDeviceContent(deviceId: string) {
         
         if (isMounted) {
           // API 응답을 프론트엔드 Content 타입으로 변환
-          const formattedContents: Content[] = data.map((item: any) => ({
-            id: item.id,
-            type: item.type as 'text' | 'image' | 'video',
-            duration: item.duration,
-            ...(item.text && { text: item.text }),
-            ...(item.fontSize && { fontSize: item.fontSize }),
-            ...(item.fontColor && { fontColor: item.fontColor }),
-            ...(item.backgroundColor && { backgroundColor: item.backgroundColor }),
-            ...(item.url && { url: item.url }),
-            ...(item.alt && { alt: item.alt }),
-            ...(item.autoplay !== undefined && { autoplay: item.autoplay }),
-            ...(item.loop !== undefined && { loop: item.loop }),
-            ...(item.muted !== undefined && { muted: item.muted }),
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-          }));
+          const formattedContents: Content[] = data.map((item: any) => {
+            if (item.type === 'split_layout') {
+              // split_layout의 경우 text 필드에서 leftContents를 파싱
+              let leftContents = [];
+              try {
+                leftContents = item.text ? JSON.parse(item.text) : [];
+              } catch (e) {
+                console.error('Failed to parse leftContents:', e);
+                leftContents = [];
+              }
+              
+              return {
+                id: item.id,
+                type: 'split_layout' as const,
+                duration: item.duration,
+                leftContents: leftContents,
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
+              };
+            }
+            
+            // 기존 타입들 처리
+            return {
+              id: item.id,
+              type: item.type as 'text' | 'image' | 'video',
+              duration: item.duration,
+              ...(item.text && { text: item.text }),
+              ...(item.fontSize && { fontSize: item.fontSize }),
+              ...(item.fontColor && { fontColor: item.fontColor }),
+              ...(item.backgroundColor && { backgroundColor: item.backgroundColor }),
+              ...(item.url && { url: item.url }),
+              ...(item.alt && { alt: item.alt }),
+              ...(item.autoplay !== undefined && { autoplay: item.autoplay }),
+              ...(item.loop !== undefined && { loop: item.loop }),
+              ...(item.muted !== undefined && { muted: item.muted }),
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt,
+            };
+          });
           
           setContents(formattedContents);
           setError(null);
@@ -82,14 +111,10 @@ export function useDeviceContent(deviceId: string) {
 
     fetchDeviceContents();
 
-    // 30초마다 콘텐츠 업데이트
-    const interval = setInterval(fetchDeviceContents, 30000);
-
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
-  }, [deviceId]);
+  }, [deviceId, refreshTrigger]);
 
-  return { contents, isLoading, error };
+  return { contents, isLoading, error, refreshContents };
 }
