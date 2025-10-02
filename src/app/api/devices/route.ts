@@ -8,6 +8,7 @@ export async function GET() {
         contents: true,
       },
     });
+    console.log('[API /api/devices] Fetched devices:', devices.length, 'devices');
     return NextResponse.json(devices);
   } catch (error) {
     console.error('Error fetching devices:', error);
