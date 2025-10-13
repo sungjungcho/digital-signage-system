@@ -14,57 +14,93 @@ type Alert = {
 };
 
 export default function DeviceDisplay({ deviceId }: { deviceId: string }) {
+  console.log('DeviceDisplay 컴포넌트 렌더링, deviceId:', deviceId);
+
   const [deviceName, setDeviceName] = useState<string>('');
   const { contents, isLoading, error, refreshContents } = useDeviceContent(deviceId);
   const [alert, setAlert] = useState<Alert | null>(null);
   const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const refreshContentsRef = useRef(refreshContents);
+
+  // refreshContents를 ref에 저장하여 최신 버전 유지
+  useEffect(() => {
+    refreshContentsRef.current = refreshContents;
+  }, [refreshContents]);
+
+  console.log('isLoading:', isLoading, 'error:', error, 'contents count:', contents?.length);
 
   useEffect(() => {
     if (!deviceId) return;
+
     console.log('WebSocket 연결 시도:', deviceId);
-    const ws = new window.WebSocket(`ws://${window.location.hostname}:3031?deviceId=${deviceId}`);
+
+    // WebSocket URL 결정: ngrok 사용 시 wss://, 로컬은 ws://
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname;
+    // HTTPS 환경(ngrok 등)에서는 현재 포트 사용, HTTP 환경에서는 항상 3031 포트 사용
+    const wsPort = window.location.protocol === 'https:' ? (window.location.port || '443') : '3031';
+    const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}?deviceId=${deviceId}`;
+
+    console.log('WebSocket URL:', wsUrl);
+    const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
-    
+
     ws.onopen = () => {
       console.log('WebSocket 연결 성공:', deviceId);
     };
-    
+
     ws.onmessage = (event: MessageEvent) => {
-      console.log('WebSocket 메시지 수신:', event.data);
+      console.log('=== WebSocket 메시지 수신 ===');
+      console.log('Raw data:', event.data);
       let data;
       try {
         data = JSON.parse(event.data);
-      } catch {
+        console.log('Parsed data:', data);
+      } catch (e) {
+        console.error('JSON 파싱 실패:', e);
         return;
       }
+
+      console.log('메시지 타입:', data.type);
+
       if (data.type === "alert" && data.alert) {
+        console.log('알림 설정:', data.alert);
         setAlert(data.alert);
       } else if (data.type === "init" && data.alerts && Array.isArray(data.alerts)) {
+        console.log('초기 알림 목록:', data.alerts);
         if (data.alerts.length > 0) setAlert(data.alerts[data.alerts.length - 1]);
       } else if (data.type === "closeAlert") {
+        console.log('알림 닫기');
         setAlert(null);
       } else if (data.type === "contentUpdate") {
-        // 콘텐츠 업데이트 통지를 받으면 콘텐츠 새로고침
-        refreshContents();
+        console.log('콘텐츠 업데이트');
+        // ref를 통해 최신 refreshContents 함수 호출
+        refreshContentsRef.current();
       } else if (data.type === "patientListUpdate") {
         // 환자 목록 업데이트 통지를 받으면 커스텀 이벤트 발생
         console.log('환자 목록 업데이트 WebSocket 메시지 수신:', deviceId);
         window.dispatchEvent(new Event('patientListUpdate'));
+      } else {
+        console.log('알 수 없는 메시지 타입');
       }
+      console.log('=========================');
     };
-    
+
     ws.onclose = () => {
       console.log('WebSocket 연결 해제:', deviceId);
       wsRef.current = null;
     };
-    
+
     ws.onerror = (error) => {
       console.error('WebSocket 오류:', error);
     };
-    
+
     return () => {
-      ws.close();
+      console.log('useEffect cleanup: WebSocket 닫기');
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
       if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
     };
   }, [deviceId]);

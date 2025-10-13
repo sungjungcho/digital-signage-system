@@ -1,4 +1,4 @@
-import { WebSocketServer, WebSocket, RawData } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { alerts, Alert } from './alertStore';
 
 // 디바이스별 연결 관리
@@ -76,16 +76,31 @@ if (!(globalThis as any).wss) {
 
 // 알림 브로드캐스트 함수
 export function broadcastAlertToDevices(alert: Alert) {
-  console.log('브로드캐스트:', alert);
+  console.log('=== 알림 브로드캐스트 시작 ===');
+  console.log('알림 ID:', alert.id);
+  console.log('알림 메시지:', alert.message);
+  console.log('대상 디바이스:', alert.targetDeviceIds);
+  console.log('현재 연결된 디바이스 수:', deviceSockets.size);
+  console.log('연결된 디바이스 목록:', Array.from(deviceSockets.keys()));
+
+  // 글로벌 저장소 확인
+  const globalSockets = (globalThis as any).deviceSockets;
+  if (globalSockets) {
+    console.log('글로벌 연결된 디바이스 수:', globalSockets.size);
+    console.log('글로벌 연결된 디바이스 목록:', Array.from(globalSockets.keys()));
+  }
+
   alert.targetDeviceIds.forEach((deviceId: string) => {
-    const ws = deviceSockets.get(deviceId);
+    const ws = deviceSockets.get(deviceId) || (globalSockets && globalSockets.get(deviceId));
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'alert', alert }));
-      console.log(`알림 전송: ${deviceId}`);
+      const message = JSON.stringify({ type: 'alert', alert });
+      ws.send(message);
+      console.log(`✓ 알림 전송 성공: ${deviceId}`);
     } else {
-      console.log(`연결 없음: ${deviceId}`);
+      console.log(`✗ 알림 전송 실패: ${deviceId} (연결 상태: ${ws ? ws.readyState : 'undefined'})`);
     }
   });
+  console.log('=== 알림 브로드캐스트 종료 ===');
 }
 
 // 단일 디바이스에 알림 닫기 메시지 전송
