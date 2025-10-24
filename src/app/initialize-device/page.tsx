@@ -19,7 +19,6 @@ export default function InitializeDevice() {
   const [inputMethod, setInputMethod] = useState<'select' | 'manual'>('select');
   const router = useRouter();
 
-  // 등록된 디바이스 목록 가져오기
   useEffect(() => {
     const fetchDevices = async () => {
       setIsLoadingDevices(true);
@@ -55,7 +54,7 @@ export default function InitializeDevice() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!deviceId.trim()) {
       setError('디바이스 ID를 입력하거나 선택해주세요.');
       return;
@@ -65,17 +64,13 @@ export default function InitializeDevice() {
     setError(null);
 
     try {
-      // 디바이스 ID 유효성 검증
       const response = await fetch(`/api/devices/${deviceId}`);
-      
+
       if (!response.ok) {
         throw new Error('유효하지 않은 디바이스 ID입니다.');
       }
-      
-      // 브라우저에 디바이스 ID 저장
+
       localStorage.setItem('deviceId', deviceId);
-      
-      // 디바이스 표시 페이지로 이동
       router.push(`/display/${deviceId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
@@ -85,107 +80,161 @@ export default function InitializeDevice() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4">
-      <div className="max-w-md w-full bg-gray-800 rounded-lg shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-white mb-6 text-center">디지털 사이니지 디바이스 연결</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 입력 방법 선택 */}
-          <div className="flex space-x-4 mb-4">
-            <button
-              type="button"
-              onClick={() => setInputMethod('select')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition duration-200 ${
-                inputMethod === 'select' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              디바이스 선택
-            </button>
-            <button
-              type="button"
-              onClick={() => setInputMethod('manual')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition duration-200 ${
-                inputMethod === 'manual' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              직접 입력
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-cyan-50 flex flex-col items-center justify-center px-4">
+      <div className="max-w-md w-full space-y-6">
+        {/* 로고 및 타이틀 */}
+        <div className="text-center">
+          <div className="mx-auto h-20 w-20 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-3xl flex items-center justify-center mb-6 shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
           </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">디바이스 연결</h1>
+          <p className="text-teal-700 font-medium">디지털 사이니지 시스템</p>
+        </div>
 
-          <div>
-            <label htmlFor="deviceId" className="block text-sm font-medium text-gray-300 mb-2">
-              디바이스 ID
-            </label>
-            
-            {inputMethod === 'select' ? (
-              <select
-                id="deviceId"
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={isLoading || isLoadingDevices}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-teal-100">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 입력 방법 선택 */}
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setInputMethod('select')}
+                className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition duration-200 ${
+                  inputMethod === 'select'
+                    ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
               >
-                <option value="">
-                  {isLoadingDevices ? '디바이스 목록 로딩 중...' :
-                   devices.length === 0 ? '등록된 디바이스가 없습니다' :
-                   '디바이스를 선택해주세요'}
-                </option>
-                {devices.map(device => (
-                  <option key={device.id} value={device.id}>
-                    {device.name} - {device.location} ({device.status === 'online' ? '온라인' : '오프라인'})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                id="deviceId"
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-                placeholder="디바이스 ID를 직접 입력하세요"
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={isLoading}
-              />
-            )}
-            
-            {deviceId && (
-              <div className="mt-2 text-xs text-gray-400">
-                선택된 디바이스 ID: {deviceId}
+                디바이스 선택
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMethod('manual')}
+                className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition duration-200 ${
+                  inputMethod === 'manual'
+                    ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                직접 입력
+              </button>
+            </div>
+
+            <div>
+              <label htmlFor="deviceId" className="block text-sm font-semibold text-gray-700 mb-2">
+                디바이스 ID
+              </label>
+
+              {inputMethod === 'select' ? (
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <select
+                    id="deviceId"
+                    value={deviceId}
+                    onChange={(e) => setDeviceId(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                    disabled={isLoading || isLoadingDevices}
+                  >
+                    <option value="">
+                      {isLoadingDevices ? '디바이스 목록 로딩 중...' :
+                       devices.length === 0 ? '등록된 디바이스가 없습니다' :
+                       '디바이스를 선택해주세요'}
+                    </option>
+                    {devices.map(device => (
+                      <option key={device.id} value={device.id}>
+                        {device.name} - {device.location} ({device.status === 'online' ? '온라인' : '오프라인'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    id="deviceId"
+                    value={deviceId}
+                    onChange={(e) => setDeviceId(e.target.value)}
+                    placeholder="디바이스 ID를 직접 입력하세요"
+                    className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+
+              {deviceId && (
+                <div className="mt-2 p-2 bg-teal-50 border border-teal-200 rounded-lg">
+                  <p className="text-xs text-teal-700 font-medium">
+                    선택된 디바이스 ID: <span className="font-mono">{deviceId}</span>
+                  </p>
+                </div>
+              )}
+
+              {!isLoadingDevices && devices.length === 0 && inputMethod === 'select' && (
+                <div className="mt-3 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm">
+                  <div className="flex items-start space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="font-semibold">등록된 디바이스가 없습니다</p>
+                      <p className="mt-1">관리자 페이지에서 먼저 디바이스를 등록해주세요.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl text-sm">
+                <div className="flex items-start space-x-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="font-medium">{error}</p>
+                </div>
               </div>
             )}
 
-            {!isLoadingDevices && devices.length === 0 && inputMethod === 'select' && (
-              <div className="mt-2 p-3 bg-yellow-900 text-yellow-200 rounded-md text-sm">
-                등록된 디바이스가 없습니다. 관리자 페이지에서 먼저 디바이스를 등록해주세요.
-              </div>
-            )}
-          </div>
-          
-          {error && (
-            <div className="bg-red-900 text-white p-3 rounded-md text-sm">
-              {error}
-            </div>
-          )}
-          
-          <button
-            type="submit"
-            disabled={isLoading || !deviceId}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            <button
+              type="submit"
+              disabled={isLoading || !deviceId}
+              className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white py-3.5 px-4 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-md transform hover:scale-[1.02]"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>연결 중...</span>
+                </div>
+              ) : (
+                '디바이스 연결'
+              )}
+            </button>
+          </form>
+        </div>
+
+        <div className="text-center">
+          <a
+            href="/admin"
+            className="inline-flex items-center space-x-2 text-sm text-teal-600 hover:text-teal-700 font-medium transition"
           >
-            {isLoading ? '연결 중...' : '디바이스 연결'}
-          </button>
-        </form>
-        
-        <div className="mt-6 text-center">
-          <a 
-            href="/admin" 
-            className="text-sm text-blue-400 hover:text-blue-300 underline"
-          >
-            관리자 페이지로 이동
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>관리자 페이지로 이동</span>
           </a>
         </div>
       </div>

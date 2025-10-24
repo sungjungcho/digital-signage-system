@@ -7,6 +7,9 @@ export async function GET() {
       include: {
         contents: true,
       },
+      orderBy: {
+        createdAt: 'asc', // 가장 먼저 등록한 디바이스가 먼저 나오도록 정렬
+      },
     });
     console.log('[API /api/devices] Fetched devices:', devices.length, 'devices');
     return NextResponse.json(devices);
