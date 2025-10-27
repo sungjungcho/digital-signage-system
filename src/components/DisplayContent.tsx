@@ -1,5 +1,6 @@
 import { Content, ImageContent, VideoContent, TextContent, SplitLayoutContent } from '@/types';
 import SplitLayoutDisplay from './SplitLayoutDisplay';
+import YoutubePlayer from './YoutubePlayer';
 
 interface DisplayContentProps {
   content: Content;
@@ -20,6 +21,26 @@ export default function DisplayContent({ content, deviceId = '' }: DisplayConten
       );
     case 'video':
       const videoContent = content as VideoContent;
+
+      // 유튜브 영상인지 확인
+      if (videoContent.url.startsWith('youtube:')) {
+        const youtubeId = videoContent.url.replace('youtube:', '');
+        const metadata = videoContent.metadata ? JSON.parse(videoContent.metadata) : {};
+
+        return (
+          <div className="w-full h-full relative">
+            <YoutubePlayer
+              videoId={youtubeId}
+              type={metadata.youtubeType || 'video'}
+              autoplay={metadata.autoplay !== false}
+              loop={metadata.loop !== false}
+              mute={metadata.mute !== false}
+            />
+          </div>
+        );
+      }
+
+      // 일반 비디오 파일
       return (
         <div className="w-full h-full relative">
           <video

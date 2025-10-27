@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import Database from 'better-sqlite3';
+import path from 'path';
+
+const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
 export async function GET(
   req: Request,
@@ -7,11 +10,10 @@ export async function GET(
 ) {
   try {
     const { deviceId } = await params;
-    const device = await prisma.device.findUnique({
-      where: {
-        id: deviceId,
-      }
-    });
+    const db = new Database(dbPath);
+
+    const device = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
+    db.close();
 
     if (!device) {
       return NextResponse.json(
@@ -37,30 +39,31 @@ export async function PATCH(
   try {
     const { deviceId } = await params;
     const data = await req.json();
+    const db = new Database(dbPath);
 
     // 디바이스 존재 확인
-    const device = await prisma.device.findUnique({
-      where: {
-        id: deviceId,
-      }
-    });
+    const device = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
 
     if (!device) {
+      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
-    // 디바이스 이름 업데이트
-    const updatedDevice = await prisma.device.update({
-      where: {
-        id: deviceId,
-      },
-      data: {
-        name: data.name,
-      }
-    });
+    // 디바이스 업데이트
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      UPDATE device
+      SET name = ?, location = ?, updatedAt = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(data.name, data.location || (device as any).location, now, deviceId);
+
+    const updatedDevice = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
+    db.close();
 
     return NextResponse.json(updatedDevice);
   } catch (error) {
@@ -78,34 +81,26 @@ export async function DELETE(
 ) {
   try {
     const { deviceId } = await params;
+    const db = new Database(dbPath);
 
     // 디바이스 존재 확인
-    const device = await prisma.device.findUnique({
-      where: {
-        id: deviceId,
-      }
-    });
+    const device = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
 
     if (!device) {
+      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
-    // 관련된 콘텐츠 먼저 삭제
-    await prisma.deviceContent.deleteMany({
-      where: {
-        deviceId: deviceId,
-      }
-    });
+    // 관련된 콘텐츠 먼저 삭제 (CASCADE로 자동 삭제되지만 명시적으로 처리)
+    db.prepare('DELETE FROM devicecontent WHERE deviceId = ?').run(deviceId);
 
     // 디바이스 삭제
-    await prisma.device.delete({
-      where: {
-        id: deviceId,
-      }
-    });
+    db.prepare('DELETE FROM device WHERE id = ?').run(deviceId);
+
+    db.close();
 
     return NextResponse.json({ message: '디바이스가 성공적으로 삭제되었습니다.' });
   } catch (error) {

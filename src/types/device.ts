@@ -22,6 +22,7 @@ export type devicecontent = {
   autoplay?: boolean;
   loop?: boolean;
   muted?: boolean;
+  metadata?: string; // 유튜브 등 추가 정보를 JSON으로 저장
   order: number;
   active: boolean;
   createdAt: string;

@@ -11,6 +11,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
   const [contents, setContents] = useState<DeviceContent[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [contentType, setContentType] = useState<'image' | 'video' | 'text' | 'split_layout'>('text');
+  const [videoSource, setVideoSource] = useState<'file' | 'youtube'>('file');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [youtubeOptions, setYoutubeOptions] = useState({
+    autoplay: true,
+    loop: true,
+    mute: false,
+  });
   const [textContent, setTextContent] = useState({
     text: '',
     duration: 5000,
@@ -88,6 +95,37 @@ export default function ContentManager({ device }: ContentManagerProps) {
       }
     } catch (error) {
       console.error('파일 업로드 중 오류 발생:', error);
+    }
+  };
+
+  const handleYoutubeSubmit = async () => {
+    if (!youtubeUrl.trim()) return;
+
+    try {
+      const response = await fetch('/api/contents/youtube', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId: device.id,
+          url: youtubeUrl,
+          autoplay: youtubeOptions.autoplay,
+          loop: youtubeOptions.loop,
+          mute: youtubeOptions.mute,
+        }),
+      });
+
+      if (response.ok) {
+        setYoutubeUrl('');
+        fetchContents();
+      } else {
+        const error = await response.json();
+        alert(error.error || '유튜브 영상 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('유튜브 영상 추가 중 오류 발생:', error);
+      alert('유튜브 영상 추가 중 오류가 발생했습니다.');
     }
   };
 
@@ -310,13 +348,120 @@ export default function ContentManager({ device }: ContentManagerProps) {
               텍스트 추가
             </button>
           </form>
+        ) : contentType === 'video' ? (
+          <div className="mt-4 space-y-4">
+            {/* 동영상 소스 선택 탭 */}
+            <div className="flex space-x-2 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setVideoSource('file')}
+                className={`px-4 py-2 font-medium text-sm transition-colors ${
+                  videoSource === 'file'
+                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                파일 업로드
+              </button>
+              <button
+                type="button"
+                onClick={() => setVideoSource('youtube')}
+                className={`px-4 py-2 font-medium text-sm transition-colors ${
+                  videoSource === 'youtube'
+                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                유튜브 연결
+              </button>
+            </div>
+
+            {videoSource === 'file' ? (
+              <div className="space-y-4">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="video/*"
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                />
+                {selectedFile && (
+                  <button
+                    onClick={handleFileUpload}
+                    className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    비디오 업로드
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    유튜브 URL
+                  </label>
+                  <input
+                    type="url"
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=... 또는 재생목록 URL"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    단일 영상, 재생목록 모두 지원됩니다
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">재생 옵션</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={youtubeOptions.autoplay}
+                        onChange={(e) => setYoutubeOptions(prev => ({ ...prev, autoplay: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">자동 재생</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={youtubeOptions.loop}
+                        onChange={(e) => setYoutubeOptions(prev => ({ ...prev, loop: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">반복 재생</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={youtubeOptions.mute}
+                        onChange={(e) => setYoutubeOptions(prev => ({ ...prev, mute: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">음소거</span>
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleYoutubeSubmit}
+                  disabled={!youtubeUrl.trim()}
+                  className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  유튜브 영상 추가
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="mt-4 space-y-4">
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept={contentType === 'image' ? 'image/*' : 'video/*'}
+              accept="image/*"
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
             />
             {selectedFile && (
@@ -324,7 +469,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                 onClick={handleFileUpload}
                 className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
-                {contentType === 'image' ? '이미지 업로드' : '비디오 업로드'}
+                이미지 업로드
               </button>
             )}
           </div>
@@ -373,17 +518,49 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     </>
                   ) : (
                     <>
-                      <p className="font-medium break-words">{content.type === 'image' ? '이미지' : '비디오'}</p>
-                      <div className="flex flex-wrap gap-2 text-sm">
-                        <span className="text-gray-600">파일: {content.url}</span>
-                        {content.type === 'video' && (
-                          <>
-                            <span className="text-gray-600">{content.autoplay ? '자동 재생' : '수동 재생'}</span>
-                            <span className="text-gray-600">{content.loop ? '반복 재생' : '1회 재생'}</span>
-                            <span className="text-gray-600">{content.muted ? '음소거' : '소리 있음'}</span>
-                          </>
-                        )}
-                      </div>
+                      {content.type === 'video' && content.url.startsWith('youtube:') ? (
+                        <>
+                          <p className="font-medium break-words flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                            </svg>
+                            유튜브 영상
+                          </p>
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            {content.metadata && (() => {
+                              try {
+                                const metadata = JSON.parse(content.metadata);
+                                return (
+                                  <>
+                                    <span className="text-gray-600">
+                                      {metadata.youtubeType === 'playlist' ? '재생목록' : '단일 영상'}
+                                    </span>
+                                    <span className="text-gray-600">{metadata.autoplay ? '자동 재생' : '수동 재생'}</span>
+                                    <span className="text-gray-600">{metadata.loop ? '반복 재생' : '1회 재생'}</span>
+                                    <span className="text-gray-600">{metadata.mute ? '음소거' : '소리 있음'}</span>
+                                  </>
+                                );
+                              } catch {
+                                return <span className="text-gray-600">설정 정보 없음</span>;
+                              }
+                            })()}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium break-words">{content.type === 'image' ? '이미지' : '비디오'}</p>
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            <span className="text-gray-600">파일: {content.url}</span>
+                            {content.type === 'video' && (
+                              <>
+                                <span className="text-gray-600">{content.autoplay ? '자동 재생' : '수동 재생'}</span>
+                                <span className="text-gray-600">{content.loop ? '반복 재생' : '1회 재생'}</span>
+                                <span className="text-gray-600">{content.muted ? '음소거' : '소리 있음'}</span>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                   <div className="text-sm text-gray-500">

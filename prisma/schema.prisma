@@ -25,7 +25,7 @@ model DeviceContent {
   id        String   @id @default(uuid())
   deviceId  String
   device    Device   @relation(fields: [deviceId], references: [id])
-  type      String   // "image" | "video" | "text"
+  type      String   // "image" | "video" | "text" | "split_layout"
   url       String?
   text      String?
   duration  Int
@@ -36,6 +36,7 @@ model DeviceContent {
   autoplay  Boolean? @default(false)
   loop      Boolean? @default(false)
   muted     Boolean? @default(true)
+  metadata  String?  // JSON string for additional data (e.g., YouTube info)
   order     Int
   active    Boolean  @default(true)
   createdAt DateTime @default(now())

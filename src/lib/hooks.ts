@@ -89,6 +89,7 @@ export function useDeviceContent(deviceId: string) {
               ...(item.autoplay !== undefined && { autoplay: item.autoplay }),
               ...(item.loop !== undefined && { loop: item.loop }),
               ...(item.muted !== undefined && { muted: item.muted }),
+              ...(item.metadata && { metadata: item.metadata }),
               createdAt: item.createdAt,
               updatedAt: item.updatedAt,
             };
