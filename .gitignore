@@ -37,6 +37,11 @@ yarn-error.log*
 /public/uploads
 .pnpm-debug.log*
 
+# data files (JSON database and SQLite)
+/data/*.json
+/data/*.db
+!/data/.gitkeep
+
 # env files (can opt-in for committing if needed)
 .env*
 
