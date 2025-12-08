@@ -173,6 +173,44 @@ export default function ContentManager({ device }: ContentManagerProps) {
     }
   };
 
+  const handleEditContent = (content: DeviceContent) => {
+    if (content.type === 'text') {
+      setContentType('text');
+      setTextContent({
+        text: content.text ?? '',
+        duration: content.duration ?? 5000,
+        fontSize: content.fontSize ?? '2rem',
+        fontColor: content.fontColor ?? '#ffffff',
+        backgroundColor: content.backgroundColor ?? '#000000',
+      });
+      setEditingTextId(content.id);
+    }
+  };
+
+  const handleUpdateDuration = async (contentId: string, newDuration: number) => {
+    try {
+      const response = await fetch(`/api/devices/${device.id}/contents/${contentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          duration: newDuration,
+        }),
+      });
+
+      if (response.ok) {
+        alert('재생 시간이 수정되었습니다.');
+        fetchContents();
+      } else {
+        alert('수정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('재생 시간 수정 중 오류:', error);
+      alert('오류가 발생했습니다.');
+    }
+  };
+
   const fetchContents = async () => {
     try {
       const response = await fetch(`/api/devices/${device.id}/contents`);
@@ -234,7 +272,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
           >
             <option value="text">텍스트</option>
             <option value="image">이미지</option>
-            <option value="video">비디오</option>
+            <option value="video">동영상</option>
             <option value="split_layout">분할 레이아웃 (좌측: 콘텐츠, 우측: 날짜/환자명단)</option>
           </select>
         </div>
@@ -249,7 +287,8 @@ export default function ContentManager({ device }: ContentManagerProps) {
             <button
               onClick={async () => {
                 try {
-                  const response = await fetch('/api/contents/split-layout', {
+                  console.log('분할 레이아웃 추가 시작:', device.id);
+                  const response = await fetch('/api/contents/splitlayout', {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -259,11 +298,22 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       duration: 10000, // 10초간 표시
                     }),
                   });
+
+                  console.log('응답 상태:', response.status);
+
                   if (response.ok) {
+                    const data = await response.json();
+                    console.log('분할 레이아웃 추가 성공:', data);
+                    alert('분할 레이아웃이 추가되었습니다!');
                     fetchContents();
+                  } else {
+                    const error = await response.json();
+                    console.error('분할 레이아웃 추가 실패:', error);
+                    alert(`분할 레이아웃 추가 실패: ${error.error || '알 수 없는 오류'}`);
                   }
                 } catch (error) {
                   console.error('분할 레이아웃 콘텐츠 등록 중 오류 발생:', error);
+                  alert('오류가 발생했습니다. 콘솔을 확인해주세요.');
                 }
               }}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -345,8 +395,26 @@ export default function ContentManager({ device }: ContentManagerProps) {
               type="submit"
               className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
-              텍스트 추가
+              {editingTextId ? '텍스트 수정' : '텍스트 추가'}
             </button>
+            {editingTextId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTextId(null);
+                  setTextContent({
+                    text: '',
+                    duration: 5000,
+                    fontSize: '2rem',
+                    fontColor: '#ffffff',
+                    backgroundColor: '#000000',
+                  });
+                }}
+                className="w-full bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+              >
+                취소
+              </button>
+            )}
           </form>
         ) : contentType === 'video' ? (
           <div className="mt-4 space-y-4">
@@ -390,7 +458,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     onClick={handleFileUpload}
                     className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
-                    비디오 업로드
+                    동영상 업로드
                   </button>
                 )}
               </div>
@@ -483,20 +551,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
             contents.map((content) => (
               <div
                 key={content.id}
-                className="flex items-center justify-between border rounded-lg p-4 cursor-pointer"
-                onClick={() => {
-                  if (content.type === 'text') {
-                    setContentType('text');
-                    setTextContent({
-                      text: content.text ?? '',
-                      duration: content.duration ?? 5000,
-                      fontSize: content.fontSize ?? '2rem',
-                      fontColor: content.fontColor ?? '#ffffff',
-                      backgroundColor: content.backgroundColor ?? '#000000',
-                    });
-                    setEditingTextId(content.id);
-                  }
-                }}
+                className="flex items-center justify-between border rounded-lg p-4"
               >
                 <div className="space-y-2 flex-grow mr-4">
                   {content.type === 'text' ? (
@@ -518,7 +573,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     </>
                   ) : (
                     <>
-                      {content.type === 'video' && content.url.startsWith('youtube:') ? (
+                      {content.type === 'video' && content.url?.startsWith('youtube:') ? (
                         <>
                           <p className="font-medium break-words flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
@@ -548,7 +603,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         </>
                       ) : (
                         <>
-                          <p className="font-medium break-words">{content.type === 'image' ? '이미지' : '비디오'}</p>
+                          <p className="font-medium break-words">{content.type === 'image' ? '이미지' : '동영상'}</p>
                           <div className="flex flex-wrap gap-2 text-sm">
                             <span className="text-gray-600">파일: {content.url}</span>
                             {content.type === 'video' && (
@@ -568,8 +623,27 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     <span className="ml-3">순서: {content.order + 1}번째</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  {/* 수정 기능 제거됨 */}
+                <div className="flex items-center gap-2">
+                  {content.type === 'text' ? (
+                    <button
+                      onClick={() => handleEditContent(content)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      수정
+                    </button>
+                  ) : content.type !== 'split_layout' && (
+                    <button
+                      onClick={() => {
+                        const newDuration = prompt(`재생 시간을 입력하세요 (밀리초, 현재: ${content.duration}ms):`, String(content.duration));
+                        if (newDuration && !isNaN(Number(newDuration))) {
+                          handleUpdateDuration(content.id, Number(newDuration));
+                        }
+                      }}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      수정
+                    </button>
+                  )}
                   <button
                     onClick={e => {
                       e.stopPropagation();

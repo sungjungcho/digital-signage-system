@@ -41,7 +41,7 @@ export default function TestPage() {
     const transitionContent: Content = {
       id: 'text-2',
       type: 'text',
-      text: '비디오 재생을 시작합니다',
+      text: '동영상 재생을 시작합니다',
       duration: 3000,
       fontSize: '3rem',
       fontColor: '#ffffff',
@@ -50,7 +50,7 @@ export default function TestPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    // 비디오 콘텐츠 생성
+    // 동영상 콘텐츠 생성
     const videoContents: Content[] = videos.map((url: string, index: number) => ({
       id: `video-${index}`,
       type: 'video' as const,

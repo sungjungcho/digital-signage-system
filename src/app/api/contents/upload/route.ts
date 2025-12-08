@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import Database from 'better-sqlite3';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 import { existsSync } from 'fs';
+
+const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
 export async function POST(req: Request) {
   try {
@@ -22,39 +25,51 @@ export async function POST(req: Request) {
     const bytes = await (file as Blob).arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileName = (file as File).name;
-    
+
     // public/uploads 디렉토리 생성 (없는 경우)
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
     }
 
     const uniqueFileName = `${Date.now()}-${fileName}`;
-    const filePath = join(uploadDir, uniqueFileName);
-    
+    const filePath = path.join(uploadDir, uniqueFileName);
+
     await writeFile(filePath, buffer);
     const publicPath = `/uploads/${uniqueFileName}`;
 
     // 데이터베이스에 콘텐츠 정보 저장
-    const existingContents = await prisma.deviceContent.findMany({
-      where: {
-        deviceId: deviceId,
-      },
-    });
+    const db = new Database(dbPath);
 
-    const newContent = await prisma.deviceContent.create({
-      data: {
-        deviceId: deviceId,
-        type: type,
-        url: publicPath,
-        duration: type === 'image' ? 5000 : 0, // 이미지는 기본 5초, 비디오는 0(비디오 길이만큼)
-        autoplay: type === 'video',
-        loop: type === 'video',
-        muted: type === 'video',
-        alt: fileName,
-        order: existingContents.length,
-      },
-    });
+    const existingContents = db.prepare(`
+      SELECT * FROM devicecontent WHERE deviceId = ?
+    `).all(deviceId);
+
+    const newContentId = randomUUID();
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO devicecontent (
+        id, deviceId, type, url, duration, autoplay, loop, muted, alt, "order", active, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      newContentId,
+      deviceId,
+      type,
+      publicPath,
+      type === 'image' ? 5000 : 0, // 이미지는 기본 5초, 동영상은 0(동영상 길이만큼)
+      type === 'video' ? 1 : 0,
+      type === 'video' ? 1 : 0,
+      type === 'video' ? 1 : 0,
+      fileName,
+      existingContents.length,
+      1,
+      now,
+      now
+    );
+
+    const newContent = db.prepare('SELECT * FROM devicecontent WHERE id = ?').get(newContentId);
+    db.close();
 
     return NextResponse.json(newContent);
   } catch (error) {

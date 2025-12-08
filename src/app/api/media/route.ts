@@ -15,7 +15,7 @@ export async function GET() {
         .map(file => `/images/${file}`)
       : [];
 
-    // 비디오 파일 목록
+    // 동영상 파일 목록
     const videoFiles = fs.existsSync(videosDir)
       ? fs.readdirSync(videosDir)
         .filter(file => /\.(mp4|webm)$/i.test(file))

@@ -40,7 +40,7 @@ export default function DisplayContent({ content, deviceId = '' }: DisplayConten
         );
       }
 
-      // 일반 비디오 파일
+      // 일반 동영상 파일
       return (
         <div className="w-full h-full relative">
           <video

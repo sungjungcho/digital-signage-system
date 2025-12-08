@@ -1,4 +1,4 @@
-// 이미지와 비디오 파일 목록을 가져오는 함수
+// 이미지와 동영상 파일 목록을 가져오는 함수
 export async function getMediaFiles() {
   try {
     const response = await fetch('/api/media');

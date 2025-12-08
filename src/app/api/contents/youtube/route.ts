@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
-// 유튜브 URL에서 비디오 ID 또는 재생목록 ID 추출
+// 유튜브 URL에서 동영상 ID 또는 재생목록 ID 추출
 function extractYoutubeInfo(url: string): { type: 'video' | 'playlist', id: string } | null {
   try {
     const urlObj = new URL(url);

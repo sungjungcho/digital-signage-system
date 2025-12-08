@@ -17,7 +17,7 @@ export interface ImageContent extends BaseContent {
   alt?: string;
 }
 
-// 비디오 콘텐츠
+// 동영상 콘텐츠
 export interface VideoContent extends BaseContent {
   type: 'video';
   url: string;
