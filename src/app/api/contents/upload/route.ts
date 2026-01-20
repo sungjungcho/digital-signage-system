@@ -7,16 +7,34 @@ import { existsSync } from 'fs';
 
 const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
+// WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
+let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
+try {
+  const wsServer = require('@/lib/wsServer');
+  broadcastContentUpdateToDevice = wsServer.broadcastContentUpdateToDevice;
+} catch (error) {
+  console.warn('WebSocket 서버를 불러올 수 없습니다:', error);
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get('file');
     const deviceId = formData.get('deviceId') as string;
     const type = formData.get('type') as 'image' | 'video';
+    const skipDbInsert = formData.get('skipDbInsert') === 'true'; // DB 저장 생략 플래그
 
-    if (!file || !deviceId || !type) {
+    if (!file || !deviceId) {
       return NextResponse.json(
         { error: '필수 데이터가 누락되었습니다.' },
+        { status: 400 }
+      );
+    }
+
+    // type이 없고 skipDbInsert도 false면 오류
+    if (!type && !skipDbInsert) {
+      return NextResponse.json(
+        { error: 'type 또는 skipDbInsert 파라미터가 필요합니다.' },
         { status: 400 }
       );
     }
@@ -37,6 +55,15 @@ export async function POST(req: Request) {
 
     await writeFile(filePath, buffer);
     const publicPath = `/uploads/${uniqueFileName}`;
+
+    // skipDbInsert가 true면 파일만 업로드하고 URL만 반환
+    if (skipDbInsert) {
+      console.log(`[API] 파일만 업로드 완료 (DB 저장 생략): ${publicPath}`);
+      return NextResponse.json({
+        url: publicPath,
+        fileName: uniqueFileName
+      });
+    }
 
     // 데이터베이스에 콘텐츠 정보 저장
     const db = new Database(dbPath);
@@ -70,6 +97,14 @@ export async function POST(req: Request) {
 
     const newContent = db.prepare('SELECT * FROM devicecontent WHERE id = ?').get(newContentId);
     db.close();
+
+    // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
+    console.log(`[API] 파일 업로드 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
+    if (broadcastContentUpdateToDevice) {
+      setTimeout(() => {
+        broadcastContentUpdateToDevice!(deviceId);
+      }, 5000);
+    }
 
     return NextResponse.json(newContent);
   } catch (error) {

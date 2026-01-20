@@ -1,6 +1,7 @@
-import { Content, ImageContent, VideoContent, TextContent, SplitLayoutContent } from '@/types';
+import { Content, ImageContent, VideoContent, TextContent, SplitLayoutContent, MixedContent } from '@/types';
 import SplitLayoutDisplay from './SplitLayoutDisplay';
 import YoutubePlayer from './YoutubePlayer';
+import MixedContentDisplay from './MixedContentDisplay';
 
 interface DisplayContentProps {
   content: Content;
@@ -54,14 +55,18 @@ export default function DisplayContent({ content, deviceId = '' }: DisplayConten
       );
     case 'text':
       const textContent = content as TextContent;
+      // fontSize가 숫자면 px 추가, 아니면 그대로 사용 (하위 호환성)
+      const fontSize = textContent.fontSize
+        ? (isNaN(Number(textContent.fontSize)) ? textContent.fontSize : `${textContent.fontSize}px`)
+        : '32px';
       return (
         <div className="w-full h-full flex items-center justify-center"
-             style={{ backgroundColor: textContent.backgroundColor }}>
-          <div 
-            className="text-4xl font-bold"
+             style={{ backgroundColor: textContent.backgroundColor || '#FFFFFF' }}>
+          <div
+            className="font-bold"
             style={{
-              color: textContent.fontColor || 'white',
-              fontSize: textContent.fontSize || '2.25rem'
+              color: textContent.fontColor || '#000000',
+              fontSize: fontSize
             }}
           >
             {textContent.text}
@@ -71,10 +76,15 @@ export default function DisplayContent({ content, deviceId = '' }: DisplayConten
     case 'split_layout':
       const splitContent = content as SplitLayoutContent;
       return (
-        <SplitLayoutDisplay 
-          contents={splitContent.leftContents} 
+        <SplitLayoutDisplay
+          contents={splitContent.leftContents}
           deviceId={deviceId}
         />
+      );
+    case 'mixed':
+      const mixedContent = content as MixedContent;
+      return (
+        <MixedContentDisplay elements={mixedContent.elements} />
       );
     default:
       return null;

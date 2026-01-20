@@ -191,7 +191,7 @@ export default function PatientManager() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-[42px] px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="환자명 입력"
                 lang="ko"
                 inputMode="text"
@@ -199,7 +199,7 @@ export default function PatientManager() {
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 순번
@@ -208,13 +208,13 @@ export default function PatientManager() {
                 type="number"
                 value={formData.number}
                 onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-[42px] px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="순번 입력"
                 min="1"
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 진료과
@@ -222,7 +222,7 @@ export default function PatientManager() {
               <select
                 value={formData.department}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-[42px] px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {departments.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>

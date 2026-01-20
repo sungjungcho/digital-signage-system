@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  digital-signage:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: digital-signage-app
+    ports:
+      - "3000:3000"  # Next.js web server
+      - "8080:8080"  # WebSocket server
+    volumes:
+      - signage-data:/app/data          # 데이터베이스 저장
+      - signage-uploads:/app/public/uploads  # 업로드된 파일 저장
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  signage-data:
+    driver: local
+  signage-uploads:
+    driver: local

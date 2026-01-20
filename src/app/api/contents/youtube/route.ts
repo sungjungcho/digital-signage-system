@@ -5,6 +5,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
+// WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
+let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
+try {
+  const wsServer = require('@/lib/wsServer');
+  broadcastContentUpdateToDevice = wsServer.broadcastContentUpdateToDevice;
+} catch (error) {
+  console.warn('WebSocket 서버를 불러올 수 없습니다:', error);
+}
+
 // 유튜브 URL에서 동영상 ID 또는 재생목록 ID 추출
 function extractYoutubeInfo(url: string): { type: 'video' | 'playlist', id: string } | null {
   try {
@@ -48,7 +57,7 @@ function extractYoutubeInfo(url: string): { type: 'video' | 'playlist', id: stri
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { deviceId, url, autoplay, loop, mute } = body;
+    const { deviceId, url, autoplay, loop, mute, scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime } = body;
 
     console.log('[YouTube API] 요청 받음:', { deviceId, url, autoplay, loop, mute });
 
@@ -92,8 +101,12 @@ export async function POST(request: NextRequest) {
 
     // 콘텐츠 저장 (url 필드에 유튜브 정보 저장)
     const stmt = db.prepare(`
-      INSERT INTO devicecontent (id, deviceId, type, url, duration, metadata, "order", active, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO devicecontent (
+        id, deviceId, type, url, duration, metadata, "order", active,
+        scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime,
+        createdAt, updatedAt
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -105,11 +118,26 @@ export async function POST(request: NextRequest) {
       metadata,
       count, // order: 현재 개수를 순서로 사용
       1, // active: true
+      scheduleType || 'always',
+      specificDate || null,
+      daysOfWeek || null,
+      startDate || null,
+      endDate || null,
+      startTime || null,
+      endTime || null,
       now,
       now
     );
 
     db.close();
+
+    // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
+    console.log(`[API] 유튜브 콘텐츠 추가 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
+    if (broadcastContentUpdateToDevice) {
+      setTimeout(() => {
+        broadcastContentUpdateToDevice!(deviceId);
+      }, 5000);
+    }
 
     return NextResponse.json({
       success: true,

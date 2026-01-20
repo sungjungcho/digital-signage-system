@@ -1,5 +1,5 @@
 // 콘텐츠 타입 정의
-export type ContentType = 'image' | 'video' | 'text' | 'split_layout';
+export type ContentType = 'image' | 'video' | 'text' | 'split_layout' | 'mixed';
 
 // 기본 콘텐츠 인터페이스
 export interface BaseContent {
@@ -42,8 +42,33 @@ export interface SplitLayoutContent extends BaseContent {
   leftContents: Content[]; // 좌측에 표시할 콘텐츠들
 }
 
+// 복합형 콘텐츠 요소 (순차 재생)
+export interface MixedContentElement {
+  type: 'text' | 'image' | 'video' | 'youtube';
+  order: number; // 재생 순서
+  duration: number; // 밀리초 단위 (0이면 동영상 길이만큼)
+  // 텍스트 속성
+  text?: string;
+  fontSize?: string;
+  fontColor?: string;
+  backgroundColor?: string;
+  // 미디어 속성
+  url?: string;
+  // 유튜브 속성
+  autoplay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+}
+
+// 복합형 콘텐츠 (순차 재생)
+export interface MixedContent extends BaseContent {
+  type: 'mixed';
+  elements: MixedContentElement[]; // 순서대로 재생할 콘텐츠들
+  metadata?: string; // JSON으로 추가 정보 저장
+}
+
 // 통합 콘텐츠 타입
-export type Content = ImageContent | VideoContent | TextContent | SplitLayoutContent;
+export type Content = ImageContent | VideoContent | TextContent | SplitLayoutContent | MixedContent;
 
 // 요일 타입
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;

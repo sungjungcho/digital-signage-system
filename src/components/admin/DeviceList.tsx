@@ -120,7 +120,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }:
                   onClick={() => onDeviceSelect(device)}
                 >
                   <h3 className="font-semibold">{device.name}</h3>
-                  <p className="text-sm text-gray-500">{device.location}</p>
+                  <p className="text-sm text-black">{device.location}</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className={`px-2 py-1 rounded text-sm ${

@@ -21,7 +21,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     }
 
     const { payload } = await jwtVerify(token, secret);
-    return payload as AuthUser;
+    return payload as unknown as AuthUser;
   } catch (error) {
     console.error('토큰 검증 실패:', error);
     return null;

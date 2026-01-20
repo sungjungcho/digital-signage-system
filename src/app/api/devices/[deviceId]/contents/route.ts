@@ -17,13 +17,46 @@ export async function GET(
       SELECT * FROM devicecontent
       WHERE deviceId = ? AND active = 1
       ORDER BY "order" ASC
-    `).all(deviceId);
+    `).all(deviceId) as any[];
 
     db.close();
 
-    console.log(`[API] 디바이스 ${deviceId}의 콘텐츠 ${deviceContents.length}개 조회됨`);
+    // 복합형 콘텐츠의 metadata를 elements로 파싱
+    const processedContents = deviceContents.map(content => {
+      if (content.type === 'mixed' && content.metadata) {
+        try {
+          const elements = JSON.parse(content.metadata);
+          console.log('[API] 복합형 콘텐츠 파싱:', {
+            contentId: content.id,
+            metadataType: typeof content.metadata,
+            metadataLength: content.metadata?.length,
+            elementsType: typeof elements,
+            isArray: Array.isArray(elements),
+            elementsLength: Array.isArray(elements) ? elements.length : 'not array',
+            firstElement: Array.isArray(elements) && elements.length > 0 ? elements[0] : null
+          });
+          return {
+            ...content,
+            elements,
+            metadata: undefined // metadata는 제거하고 elements만 사용
+          };
+        } catch (error) {
+          console.error('복합형 콘텐츠 metadata 파싱 오류:', error);
+          return content;
+        }
+      }
+      return content;
+    });
 
-    return NextResponse.json(deviceContents);
+    console.log(`[API] 디바이스 ${deviceId}의 콘텐츠 ${processedContents.length}개 조회됨`);
+
+    // 복합형 콘텐츠가 있으면 상세 로그
+    const mixedContent = processedContents.find(c => c.type === 'mixed');
+    if (mixedContent) {
+      console.log('[API] 복합형 콘텐츠 최종 데이터:', JSON.stringify(mixedContent, null, 2));
+    }
+
+    return NextResponse.json(processedContents);
   } catch (error) {
     console.error('콘텐츠 목록 조회 오류:', error);
     return NextResponse.json(
