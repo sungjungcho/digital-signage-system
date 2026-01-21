@@ -219,7 +219,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
       {showAddForm && (
         <div className="mb-4 p-4 bg-teal-50 border border-teal-200 rounded-lg space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+            <label className="block text-base font-medium text-gray-700 mb-1">카테고리</label>
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
@@ -233,7 +233,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+            <label className="block text-base font-medium text-gray-700 mb-1">제목</label>
             <input
               type="text"
               value={newTitle}
@@ -243,7 +243,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
+            <label className="block text-base font-medium text-gray-700 mb-1">내용</label>
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
@@ -275,7 +275,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
                 // 수정 모드
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">카테고리</label>
                     <select
                       value={editingNotice.category || '기타'}
                       onChange={(e) =>
@@ -291,7 +291,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">제목</label>
                     <input
                       type="text"
                       value={editingNotice.title}
@@ -300,7 +300,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">내용</label>
                     <textarea
                       value={editingNotice.content}
                       onChange={(e) =>
@@ -336,14 +336,14 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
                       >
                         {notice.favorite ? '⭐' : '☆'}
                       </button>
-                      <span className="px-2 py-1 text-xs font-medium bg-teal-100 text-teal-800 rounded">
+                      <span className="px-2 py-1 text-base font-medium bg-teal-100 text-teal-800 rounded">
                         {notice.category || '기타'}
                       </span>
                       <h4 className="font-semibold text-gray-800">{notice.title}</h4>
                     </div>
                   </div>
                   <p className="text-gray-600 text-sm mb-3 whitespace-pre-wrap">{notice.content}</p>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center justify-between text-base text-gray-500">
                     <div>
                       {notice.lastUsedAt ? (
                         <span>

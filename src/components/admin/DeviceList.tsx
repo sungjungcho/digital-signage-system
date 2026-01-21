@@ -120,7 +120,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }:
                   onClick={() => onDeviceSelect(device)}
                 >
                   <h3 className="font-semibold">{device.name}</h3>
-                  <p className="text-sm text-black">{device.location}</p>
+                  <p className="text-base text-black">{device.location}</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className={`px-2 py-1 rounded text-sm ${
@@ -135,7 +135,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }:
                       e.stopPropagation();
                       handleEditDevice(device.id, device.name);
                     }}
-                    className="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                    className="px-2 py-1 text-base text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                     title="디바이스 이름 수정"
                   >
                     수정
@@ -146,7 +146,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }:
                       handleDeleteDevice(device.id, device.name);
                     }}
                     disabled={deletingDeviceId === device.id}
-                    className="px-2 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded disabled:opacity-50"
+                    className="px-2 py-1 text-base text-red-600 hover:text-red-800 hover:bg-red-50 rounded disabled:opacity-50"
                     title="디바이스 삭제"
                   >
                     {deletingDeviceId === device.id ? '삭제 중...' : '삭제'}

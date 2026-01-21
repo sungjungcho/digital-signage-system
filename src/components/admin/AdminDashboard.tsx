@@ -69,8 +69,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">디지털 사이니지 관리</h1>
-                <p className="text-sm text-teal-600 font-medium">병원 통합 관리 시스템</p>
+                <h1 className="text-3xl font-bold text-gray-800">디지털 사이니지 관리</h1>
+                <p className="text-base text-teal-600 font-medium">병원 통합 관리 시스템</p>
               </div>
             </div>
             <button
@@ -99,7 +99,7 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">디바이스 관리</h2>
+                <h2 className="text-2xl font-bold text-gray-800">디바이스 관리</h2>
               </div>
               <DeviceForm onDeviceAdded={handleDeviceAdded} />
               <div className="mt-6">
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <h2 className="text-xl font-bold text-gray-800">콘텐츠 관리</h2>
+                  <h2 className="text-2xl font-bold text-gray-800">콘텐츠 관리</h2>
                 </div>
               </div>
               <div className="flex space-x-2 items-center mb-4">
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
                       const device = devices.find(d => d.id === deviceId);
                       setSelectedDevice(device || null);
                     }}
-                    className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-2.5"
+                    className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-base p-2.5"
                   >
                     <option value="">디바이스 선택</option>
                     {devices.map(device => (
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
                     href={`/display/${selectedDevice.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2.5 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 transition"
+                    className="inline-flex items-center px-4 py-2.5 border border-transparent rounded-xl shadow-sm text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 transition"
                     title="미리보기"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-gray-500 font-medium">디바이스를 선택해주세요</p>
+                  <p className="text-gray-500 font-medium text-lg">디바이스를 선택해주세요</p>
                 </div>
               )}
             </div>
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">환자 관리</h2>
+                <h2 className="text-2xl font-bold text-gray-800">환자 관리</h2>
               </div>
               <PatientManager />
             </div>
@@ -203,7 +203,7 @@ export default function AdminDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">긴급 알림 전송</h2>
+              <h2 className="text-2xl font-bold text-gray-800">긴급 알림 전송</h2>
             </div>
             <form
                 onSubmit={async (e) => {
@@ -235,7 +235,7 @@ export default function AdminDashboard() {
                 className="space-y-4"
               >
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-2">알림 내용</label>
+                  <label className="block font-semibold text-gray-700 mb-2 text-base">알림 내용</label>
                   <textarea
                     className="w-full border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                     rows={2}
@@ -246,7 +246,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-2">대상 디바이스 선택</label>
+                  <label className="block font-semibold text-gray-700 mb-2 text-base">대상 디바이스 선택</label>
                   <div className="mb-3">
                     <label className="inline-flex items-center space-x-2 border-2 border-teal-300 rounded-xl px-4 py-2 bg-teal-50 font-semibold text-teal-700 cursor-pointer hover:bg-teal-100 transition">
                       <input
@@ -279,13 +279,13 @@ export default function AdminDashboard() {
                           }}
                           className="h-4 w-4 text-teal-600 rounded"
                         />
-                        <span className="text-sm font-medium">{device.name} ({device.location})</span>
+                        <span className="text-base font-medium">{device.name} ({device.location})</span>
                       </label>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-2">알림 표시 시간</label>
+                  <label className="block font-semibold text-gray-700 mb-2 text-base">알림 표시 시간</label>
                   <select
                     value={alertDuration}
                     onChange={e => setAlertDuration(Number(e.target.value))}
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
                   </button>
                 </div>
                 {alertResult && (
-                  <div className="mt-3 p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl text-sm font-medium">
+                  <div className="mt-3 p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl text-base font-medium">
                     {alertResult}
                   </div>
                 )}

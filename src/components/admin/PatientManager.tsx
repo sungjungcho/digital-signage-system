@@ -184,7 +184,7 @@ export default function PatientManager() {
         <form onSubmit={handleSubmit} className="space-y-4 bg-gray-50 p-4 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-base font-medium text-gray-700 mb-1">
                 환자명
               </label>
               <input
@@ -201,7 +201,7 @@ export default function PatientManager() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-base font-medium text-gray-700 mb-1">
                 순번
               </label>
               <input
@@ -216,7 +216,7 @@ export default function PatientManager() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-base font-medium text-gray-700 mb-1">
                 진료과
               </label>
               <select
@@ -271,19 +271,19 @@ export default function PatientManager() {
                   </span>
                   <div>
                     <span className="font-semibold">{patient.name}</span>
-                    <span className="ml-2 text-sm text-green-600">({patient.department})</span>
+                    <span className="ml-2 text-base text-green-600">({patient.department})</span>
                   </div>
                 </div>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleEdit(patient)}
-                    className="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                    className="px-2 py-1 text-base text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleDelete(patient)}
-                    className="px-2 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                    className="px-2 py-1 text-base text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
                   >
                     삭제
                   </button>

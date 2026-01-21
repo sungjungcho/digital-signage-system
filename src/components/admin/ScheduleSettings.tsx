@@ -194,19 +194,19 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
   return (
     <div className="space-y-4">
       {showLabel && (
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-base font-medium text-gray-700 mb-2">
           스케줄 설정
         </label>
       )}
 
       {/* 스케줄 타입 선택 */}
       <div className="space-y-2">
-        <label className="block text-sm text-gray-600">표시 기간</label>
+        <label className="block text-base text-gray-600">표시 기간</label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setScheduleType('always')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${
               scheduleType === 'always'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -217,7 +217,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
           <button
             type="button"
             onClick={() => setScheduleType('specific_date')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${
               scheduleType === 'specific_date'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -228,7 +228,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
           <button
             type="button"
             onClick={() => setScheduleType('days_of_week')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${
               scheduleType === 'days_of_week'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -239,7 +239,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
           <button
             type="button"
             onClick={() => setScheduleType('date_range')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${
               scheduleType === 'date_range'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -273,7 +273,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
                 <button
                   type="button"
                   onClick={goToToday}
-                  className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  className="px-2 py-0.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
                 >
                   오늘
                 </button>
@@ -295,7 +295,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
               {dayLabels.map((label, index) => (
                 <div
                   key={index}
-                  className={`text-center text-xs font-semibold py-1 ${
+                  className={`text-center text-sm font-semibold py-1 ${
                     index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-gray-600'
                   }`}
                 >
@@ -312,7 +312,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
             {/* 선택된 날짜 표시 */}
             {scheduleType === 'specific_date' && specificDate && (
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
+                <p className="text-base text-blue-800">
                   선택된 날짜: <span className="font-semibold">{specificDate}</span>
                 </p>
               </div>
@@ -320,7 +320,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
 
             {scheduleType === 'date_range' && (startDate || endDate) && (
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
+                <p className="text-base text-blue-800">
                   {startDate && !endDate && `시작일: ${startDate} (종료일을 선택하세요)`}
                   {startDate && endDate && `기간: ${startDate} ~ ${endDate}`}
                 </p>
@@ -331,7 +331,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
                       setStartDate('');
                       setEndDate('');
                     }}
-                    className="mt-2 text-sm text-red-600 hover:text-red-800"
+                    className="mt-2 text-base text-red-600 hover:text-red-800"
                   >
                     선택 초기화
                   </button>
@@ -345,7 +345,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
             <label className="block text-base font-medium text-gray-700 mb-4">시간 범위 (선택사항)</label>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-sm text-gray-600">시작 시간</label>
+                <label className="block text-base text-gray-600">시작 시간</label>
                 <input
                   type="time"
                   value={startTime}
@@ -354,7 +354,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm text-gray-600">종료 시간</label>
+                <label className="block text-base text-gray-600">종료 시간</label>
                 <input
                   type="time"
                   value={endTime}
@@ -362,7 +362,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <p className="text-sm text-gray-500 pt-2">
+              <p className="text-base text-gray-500 pt-2">
                 * 시간을 설정하지 않으면 하루 종일 표시됩니다.
               </p>
             </div>
@@ -414,7 +414,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
             <label className="block text-base font-medium text-gray-700 mb-4">시간 범위 (선택사항)</label>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-sm text-gray-600">시작 시간</label>
+                <label className="block text-base text-gray-600">시작 시간</label>
                 <input
                   type="time"
                   value={startTime}
@@ -423,7 +423,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm text-gray-600">종료 시간</label>
+                <label className="block text-base text-gray-600">종료 시간</label>
                 <input
                   type="time"
                   value={endTime}
@@ -431,7 +431,7 @@ export default function ScheduleSettings({ value, onChange, showLabel = true }: 
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <p className="text-sm text-gray-500 pt-2">
+              <p className="text-base text-gray-500 pt-2">
                 * 시간을 설정하지 않으면 하루 종일 표시됩니다.
               </p>
             </div>

@@ -37,7 +37,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            <p className="text-sm font-medium">디지털 사이니지 시스템</p>
+            <p className="text-base font-medium">디지털 사이니지 시스템</p>
           </div>
         </div>
 
@@ -45,7 +45,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-teal-100">
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-base font-semibold text-gray-700 mb-2">
                 아이디
               </label>
               <div className="relative">
@@ -69,7 +69,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-base font-semibold text-gray-700 mb-2">
                 비밀번호
               </label>
               <div className="relative">
@@ -100,7 +100,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   type="checkbox"
                   className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded cursor-pointer"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-600 cursor-pointer">
+                <label htmlFor="remember-me" className="ml-2 block text-base text-gray-600 cursor-pointer">
                   로그인 상태 유지
                 </label>
               </div>
@@ -132,7 +132,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-sm text-gray-600">문제가 있으신가요? 시스템 관리자에게 문의하세요.</p>
+            <p className="text-base text-gray-600">문제가 있으신가요? 시스템 관리자에게 문의하세요.</p>
           </div>
         </div>
       </div>

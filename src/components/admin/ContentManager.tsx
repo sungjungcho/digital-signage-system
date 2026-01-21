@@ -537,7 +537,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-medium">디바이스: {device.name}</h3>
-          <p className="text-sm text-gray-500">위치: {device.location}</p>
+          <p className="text-base text-gray-500">위치: {device.location}</p>
         </div>
         <div className="flex items-center space-x-3">
           <div className={`px-3 py-1 rounded-full text-sm ${
@@ -591,14 +591,14 @@ export default function ContentManager({ device }: ContentManagerProps) {
         {contentType === 'mixed' ? (
           <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
             <h4 className="font-semibold text-purple-800 mb-2">복합형 콘텐츠 (순차 재생)</h4>
-            <p className="text-sm text-purple-600 mb-4">
+            <p className="text-base text-purple-600 mb-4">
               여러 콘텐츠를 순서대로 재생합니다. 텍스트, 이미지, 동영상, 유튜브를 자유롭게 조합할 수 있습니다.
             </p>
 
             {/* 현재 추가 중인 요소 */}
             <div className="space-y-4 bg-white p-4 rounded-md border border-purple-300 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">요소 타입</label>
+                <label className="block text-base font-medium text-gray-700 mb-2">요소 타입</label>
                 <select
                   value={currentMixedElement.type}
                   onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, type: e.target.value as 'text' | 'image' | 'video' | 'youtube' | 'split_layout' })}
@@ -616,7 +616,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {currentMixedElement.type === 'text' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">텍스트 내용</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">텍스트 내용</label>
                     <textarea
                       value={currentMixedElement.text || ''}
                       onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, text: e.target.value })}
@@ -627,7 +627,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   <div className="grid grid-cols-6 gap-3">
                     {/* 글자 크기 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">글자 크기 (px)</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
                       <input
                         type="number"
                         value={currentMixedElement.fontSize || '32'}
@@ -640,7 +640,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 글자 색상 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">글자 색상</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">글자 색상</label>
                       <div className="flex items-center gap-1">
                         <input
                           type="color"
@@ -652,7 +652,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           type="text"
                           value={currentMixedElement.fontColor || '#000000'}
                           onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, fontColor: e.target.value })}
-                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-xs"
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-sm"
                           placeholder="#000000"
                         />
                       </div>
@@ -660,7 +660,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 배경 색상 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">배경 색상</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">배경 색상</label>
                       <div className="flex items-center gap-1">
                         <input
                           type="color"
@@ -672,7 +672,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           type="text"
                           value={currentMixedElement.backgroundColor || '#FFFFFF'}
                           onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, backgroundColor: e.target.value })}
-                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-xs"
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-sm"
                           placeholder="#FFFFFF"
                         />
                       </div>
@@ -680,7 +680,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 - 시간 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">시간</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">시간</label>
                       <input
                         type="number"
                         min="0"
@@ -698,7 +698,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 - 분 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">분</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">분</label>
                       <input
                         type="number"
                         min="0"
@@ -717,7 +717,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 - 초 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">초</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">초</label>
                       <input
                         type="number"
                         min="0"
@@ -741,7 +741,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {(currentMixedElement.type === 'image' || currentMixedElement.type === 'video') && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">파일 선택</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">파일 선택</label>
                     <input
                       type="file"
                       accept={currentMixedElement.type === 'image' ? 'image/*' : 'video/*'}
@@ -751,12 +751,12 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           setCurrentMixedElement({ ...currentMixedElement, file });
                         }
                       }}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100"
+                      className="block w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      표시 시간 {currentMixedElement.type === 'video' && <span className="text-xs text-gray-500">(동영상은 0,0,0으로 하면 재생 시간만큼)</span>}
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      표시 시간 {currentMixedElement.type === 'video' && <span className="text-base text-gray-500">(동영상은 0,0,0으로 하면 재생 시간만큼)</span>}
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="flex items-center gap-2">
@@ -773,7 +773,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -790,7 +790,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -807,7 +807,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                       </div>
                     </div>
                   </div>
@@ -818,7 +818,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {currentMixedElement.type === 'youtube' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">유튜브 URL</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">유튜브 URL</label>
                     <input
                       type="url"
                       value={currentMixedElement.url || ''}
@@ -828,7 +828,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">표시 시간</label>
+                    <label className="block text-base font-medium text-gray-700 mb-2">표시 시간</label>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="flex items-center gap-2">
                         <input
@@ -844,7 +844,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -861,7 +861,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -878,7 +878,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                       </div>
                     </div>
                   </div>
@@ -890,7 +890,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, autoplay: e.target.checked })}
                         className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                       />
-                      <span className="text-sm text-gray-700">자동 재생</span>
+                      <span className="text-base text-gray-700">자동 재생</span>
                     </label>
                     <label className="flex items-center space-x-2">
                       <input
@@ -899,7 +899,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, loop: e.target.checked })}
                         className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                       />
-                      <span className="text-sm text-gray-700">반복 재생</span>
+                      <span className="text-base text-gray-700">반복 재생</span>
                     </label>
                     <label className="flex items-center space-x-2">
                       <input
@@ -908,7 +908,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, muted: e.target.checked })}
                         className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                       />
-                      <span className="text-sm text-gray-700">음소거</span>
+                      <span className="text-base text-gray-700">음소거</span>
                     </label>
                   </div>
                 </>
@@ -918,13 +918,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {currentMixedElement.type === 'split_layout' && (
                 <>
                   <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-700 mb-2">
+                    <p className="text-base text-blue-700 mb-2">
                       화면 왼쪽에 표시할 콘텐츠를 추가하세요. 오른쪽에는 실시간 환자 명단이 표시됩니다.
                     </p>
 
                     {/* 왼쪽 콘텐츠 타입 선택 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">왼쪽 콘텐츠 타입</label>
+                      <label className="block text-base font-medium text-gray-700 mb-2">왼쪽 콘텐츠 타입</label>
                       <select
                         value={currentLeftContent.type}
                         onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, type: e.target.value as 'text' | 'image' | 'video' | 'youtube' })}
@@ -940,7 +940,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     {/* 텍스트 입력 */}
                     {currentLeftContent.type === 'text' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">텍스트 내용</label>
+                        <label className="block text-base font-medium text-gray-700 mb-1">텍스트 내용</label>
                         <textarea
                           value={currentLeftContent.text || ''}
                           onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, text: e.target.value })}
@@ -953,7 +953,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     {/* 이미지/동영상/유튜브 URL */}
                     {(currentLeftContent.type === 'image' || currentLeftContent.type === 'video' || currentLeftContent.type === 'youtube') && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-base font-medium text-gray-700 mb-1">
                           {currentLeftContent.type === 'youtube' ? '유튜브 URL' : 'URL 또는 파일'}
                         </label>
                         <input
@@ -968,7 +968,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">표시 시간</label>
+                      <label className="block text-base font-medium text-gray-700 mb-2">표시 시간</label>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="flex items-center gap-2">
                           <input
@@ -984,7 +984,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                             }}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center"
                           />
-                          <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                          <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                         </div>
                         <div className="flex items-center gap-2">
                           <input
@@ -1001,7 +1001,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                             }}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center"
                           />
-                          <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                          <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                         </div>
                         <div className="flex items-center gap-2">
                           <input
@@ -1018,7 +1018,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                             }}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center"
                           />
-                          <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                          <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                         </div>
                       </div>
                     </div>
@@ -1055,7 +1055,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     {/* 추가된 왼쪽 콘텐츠 목록 */}
                     {splitLayoutLeftContents.length > 0 && (
                       <div className="space-y-2">
-                        <h6 className="text-sm font-medium text-gray-700">왼쪽 콘텐츠 목록</h6>
+                        <h6 className="text-base font-medium text-gray-700">왼쪽 콘텐츠 목록</h6>
                         {splitLayoutLeftContents.map((content, idx) => (
                           <div key={content.id} className="flex items-center justify-between bg-white p-2 rounded border">
                             <span className="text-sm">
@@ -1078,7 +1078,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                   {/* split_layout 전체 표시 시간 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">전체 레이아웃 표시 시간</label>
+                    <label className="block text-base font-medium text-gray-700 mb-2">전체 레이아웃 표시 시간</label>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="flex items-center gap-2">
                         <input
@@ -1094,7 +1094,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -1111,7 +1111,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -1128,7 +1128,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-center"
                         />
-                        <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                        <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                       </div>
                     </div>
                   </div>
@@ -1179,16 +1179,16 @@ export default function ContentManager({ device }: ContentManagerProps) {
                 {mixedElements.map((element, index) => (
                   <div key={element.id} className="flex items-center justify-between bg-white p-3 rounded-md border border-gray-300">
                     <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                      <span className="text-base font-medium text-gray-500">#{index + 1}</span>
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className="text-base font-medium">
                           {element.type === 'text' ? `텍스트: ${element.text?.substring(0, 20)}...` :
                            element.type === 'image' ? `이미지: ${element.file?.name}` :
                            element.type === 'video' ? `동영상: ${element.file?.name}` :
                            element.type === 'split_layout' ? `분할 레이아웃 (왼쪽 콘텐츠 ${element.leftContents?.length || 0}개)` :
                            `유튜브: ${element.url}`}
                         </p>
-                        <p className="text-xs text-gray-500">재생 시간: {element.duration}ms</p>
+                        <p className="text-base text-gray-500">재생 시간: {element.duration}ms</p>
                       </div>
                     </div>
                     <button
@@ -1314,24 +1314,24 @@ export default function ContentManager({ device }: ContentManagerProps) {
             <h4 className="font-semibold text-blue-800 mb-2">
               분할 레이아웃 설정 {editingSplitLayoutId && <span className="text-sm font-normal text-blue-600">(수정 모드)</span>}
             </h4>
-            <p className="text-sm text-blue-600 mb-2">
+            <p className="text-base text-blue-600 mb-2">
               이 레이아웃은 화면을 좌측(콘텐츠)과 우측(날짜/시간 + 대기환자 명단)으로 분할합니다.
               좌측에는 추가한 콘텐츠가 순환 표시되고, 우측에는 실시간 정보가 표시됩니다.
             </p>
             {editingSplitLayoutId && (
-              <p className="text-sm text-green-700 font-medium mb-4 bg-green-50 p-2 rounded border border-green-200">
+              <p className="text-base text-green-700 font-medium mb-4 bg-green-50 p-2 rounded border border-green-200">
                 ✓ 기존 분할 레이아웃을 수정하는 중입니다. 왼쪽 콘텐츠를 추가/수정/삭제 후 "분할 레이아웃 수정" 버튼을 클릭하세요.
               </p>
             )}
 
             <div className="space-y-4 p-4 bg-white border border-blue-200 rounded-lg mb-4">
-              <p className="text-sm text-gray-700 font-medium mb-2">
+              <p className="text-base text-gray-700 font-medium mb-2">
                 화면 왼쪽에 표시할 콘텐츠를 추가하세요
               </p>
 
               {/* 왼쪽 콘텐츠 타입 선택 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">왼쪽 콘텐츠 타입</label>
+                <label className="block text-base font-medium text-gray-700 mb-2">왼쪽 콘텐츠 타입</label>
                 <select
                   value={currentLeftContent.type}
                   onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, type: e.target.value as 'text' | 'image' | 'video' | 'youtube' })}
@@ -1348,7 +1348,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {currentLeftContent.type === 'text' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">텍스트 내용</label>
+                    <label className="block text-base font-medium text-gray-700 mb-1">텍스트 내용</label>
                     <textarea
                       value={currentLeftContent.text || ''}
                       onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, text: e.target.value })}
@@ -1359,7 +1359,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   <div className="grid grid-cols-6 gap-3">
                     {/* 글자 크기 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">글자 크기 (px)</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
                       <input
                         type="number"
                         value={currentLeftContent.fontSize || '32'}
@@ -1372,7 +1372,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 글자 색상 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">글자 색상</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">글자 색상</label>
                       <div className="flex items-center gap-1">
                         <input
                           type="color"
@@ -1384,7 +1384,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           type="text"
                           value={currentLeftContent.fontColor || '#000000'}
                           onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, fontColor: e.target.value })}
-                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-xs"
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-sm"
                           placeholder="#000000"
                         />
                       </div>
@@ -1392,7 +1392,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 배경 색상 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">배경 색상</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">배경 색상</label>
                       <div className="flex items-center gap-1">
                         <input
                           type="color"
@@ -1404,7 +1404,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           type="text"
                           value={currentLeftContent.backgroundColor || '#FFFFFF'}
                           onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, backgroundColor: e.target.value })}
-                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-xs"
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-sm"
                           placeholder="#FFFFFF"
                         />
                       </div>
@@ -1412,7 +1412,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 - 시간 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">시간</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">시간</label>
                       <input
                         type="number"
                         min="0"
@@ -1430,7 +1430,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 - 분 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">분</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">분</label>
                       <input
                         type="number"
                         min="0"
@@ -1449,7 +1449,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                     {/* 표시 시간 - 초 */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">초</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">초</label>
                       <input
                         type="number"
                         min="0"
@@ -1472,7 +1472,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {/* 유튜브 URL 입력 */}
               {currentLeftContent.type === 'youtube' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">유튜브 URL</label>
+                  <label className="block text-base font-medium text-gray-700 mb-1">유튜브 URL</label>
                   <input
                     type="text"
                     value={currentLeftContent.url || ''}
@@ -1486,7 +1486,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {/* 이미지/동영상 파일 업로드 */}
               {(currentLeftContent.type === 'image' || currentLeftContent.type === 'video') && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-base font-medium text-gray-700 mb-1">
                     {currentLeftContent.type === 'image' ? '이미지 파일' : '동영상 파일'}
                   </label>
                   <input
@@ -1498,10 +1498,10 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         setCurrentLeftContent({ ...currentLeftContent, file, url: file.name });
                       }
                     }}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="block w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                   {currentLeftContent.url && (
-                    <p className="mt-1 text-xs text-gray-500">선택된 파일: {currentLeftContent.url}</p>
+                    <p className="mt-1 text-base text-gray-500">선택된 파일: {currentLeftContent.url}</p>
                   )}
                 </div>
               )}
@@ -1602,7 +1602,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {/* 추가된 왼쪽 콘텐츠 목록 */}
               {splitLayoutLeftContents.length > 0 && (
                 <div className="space-y-2">
-                  <h6 className="text-sm font-medium text-gray-700">왼쪽 콘텐츠 목록</h6>
+                  <h6 className="text-base font-medium text-gray-700">왼쪽 콘텐츠 목록</h6>
                   {splitLayoutLeftContents.map((content, idx) => (
                     <div key={content.id} className={`flex items-center justify-between p-2 rounded border ${editingLeftContentId === content.id ? 'bg-blue-100 border-blue-400' : 'bg-gray-50 border-gray-200'}`}>
                       <span className="text-sm flex-1">
@@ -1624,7 +1624,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                               backgroundColor: content.backgroundColor,
                             });
                           }}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          className="text-blue-600 hover:text-blue-800 text-base font-medium"
                         >
                           수정
                         </button>
@@ -1646,7 +1646,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                               }
                             }
                           }}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          className="text-red-600 hover:text-red-800 text-base font-medium"
                         >
                           삭제
                         </button>
@@ -1658,7 +1658,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
             </div>
 
             <div className="mb-4">
-              <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+              <label className="flex items-center space-x-2 text-base text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={splitLayoutOptions.showNotices}
@@ -1667,7 +1667,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                 />
                 <span>공지사항 표시 (날짜/시간 + 공지사항 + 환자명단 3단 구성)</span>
               </label>
-              <p className="text-xs text-gray-500 ml-6 mt-1">
+              <p className="text-base text-gray-500 ml-6 mt-1">
                 체크 해제 시: 날짜/시간 + 환자명단 2단 구성
               </p>
             </div>
@@ -1849,7 +1849,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
         ) : contentType === 'text' ? (
           <form onSubmit={handleTextSubmit} className="mt-4 space-y-4">
             <div>
-              <label htmlFor="text" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="text" className="block text-base font-medium text-gray-700">
                 텍스트 내용
               </label>
               <textarea
@@ -1863,7 +1863,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
             <div className="grid grid-cols-6 gap-3">
               {/* 글자 크기 */}
               <div>
-                <label htmlFor="fontSize" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="fontSize" className="block text-base font-medium text-gray-700 mb-1">
                   글자 크기 (px)
                 </label>
                 <input
@@ -1880,7 +1880,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
               {/* 글자 색상 */}
               <div>
-                <label htmlFor="fontColor" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="fontColor" className="block text-base font-medium text-gray-700 mb-1">
                   글자 색상
                 </label>
                 <div className="flex items-center gap-1">
@@ -1896,7 +1896,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     type="text"
                     value={textContent.fontColor}
                     onChange={(e) => setTextContent((prev) => ({ ...prev, fontColor: e.target.value }))}
-                    className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-xs"
+                    className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-sm"
                     placeholder="#000000"
                   />
                 </div>
@@ -1904,7 +1904,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
               {/* 배경 색상 */}
               <div>
-                <label htmlFor="backgroundColor" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="backgroundColor" className="block text-base font-medium text-gray-700 mb-1">
                   배경 색상
                 </label>
                 <div className="flex items-center gap-1">
@@ -1920,7 +1920,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     type="text"
                     value={textContent.backgroundColor}
                     onChange={(e) => setTextContent((prev) => ({ ...prev, backgroundColor: e.target.value }))}
-                    className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-xs"
+                    className="flex-1 px-2 py-2 border border-gray-300 rounded-md text-sm"
                     placeholder="#FFFFFF"
                   />
                 </div>
@@ -1928,7 +1928,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
               {/* 표시 시간 - 시간 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-base font-medium text-gray-700 mb-1">
                   시간
                 </label>
                 <input
@@ -1948,7 +1948,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
               {/* 표시 시간 - 분 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-base font-medium text-gray-700 mb-1">
                   분
                 </label>
                 <input
@@ -1969,7 +1969,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
               {/* 표시 시간 - 초 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-base font-medium text-gray-700 mb-1">
                   초
                 </label>
                 <input
@@ -2058,7 +2058,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   ref={fileInputRef}
                   onChange={handleFileSelect}
                   accept="video/*"
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                  className="block w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
                 />
 
                 {/* 스케줄 설정 */}
@@ -2083,7 +2083,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-base font-medium text-gray-700 mb-2">
                     유튜브 URL
                   </label>
                   <input
@@ -2093,13 +2093,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     placeholder="https://www.youtube.com/watch?v=... 또는 재생목록 URL"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-base text-gray-500">
                     단일 영상, 재생목록 모두 지원됩니다
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">재생 옵션</label>
+                  <label className="block text-base font-medium text-gray-700">재생 옵션</label>
                   <div className="space-y-2">
                     <label className="flex items-center space-x-2">
                       <input
@@ -2108,7 +2108,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         onChange={(e) => setYoutubeOptions(prev => ({ ...prev, autoplay: e.target.checked }))}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">자동 재생</span>
+                      <span className="text-base text-gray-700">자동 재생</span>
                     </label>
                     <label className="flex items-center space-x-2">
                       <input
@@ -2117,7 +2117,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         onChange={(e) => setYoutubeOptions(prev => ({ ...prev, loop: e.target.checked }))}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">반복 재생</span>
+                      <span className="text-base text-gray-700">반복 재생</span>
                     </label>
                     <label className="flex items-center space-x-2">
                       <input
@@ -2126,7 +2126,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         onChange={(e) => setYoutubeOptions(prev => ({ ...prev, mute: e.target.checked }))}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">음소거</span>
+                      <span className="text-base text-gray-700">음소거</span>
                     </label>
                   </div>
                 </div>
@@ -2156,7 +2156,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               ref={fileInputRef}
               onChange={handleFileSelect}
               accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+              className="block w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
             />
             {selectedFile && (
               <button
@@ -2186,7 +2186,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      <span className="text-white text-xs font-medium">복합형</span>
+                      <span className="text-white text-base font-medium">복합형</span>
                     </div>
                   </div>
                 ) : (content.type === 'image' || content.type === 'video') && content.url && (
@@ -2223,7 +2223,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-white text-xs font-medium">동영상</span>
+                        <span className="text-white text-base font-medium">동영상</span>
                       </div>
                     )}
                   </div>
@@ -2267,7 +2267,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                   {sortedElements.map((element: any, index: number) => (
                                     <div key={index} className="flex items-start gap-3 p-2 bg-purple-50 rounded">
                                       {/* 순서 표시 */}
-                                      <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                      <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
                                         {index + 1}
                                       </span>
 
@@ -2276,10 +2276,10 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                         {element.type === 'text' ? (
                                           <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                              <span className="text-xs font-semibold text-purple-700 bg-purple-200 px-2 py-0.5 rounded">텍스트</span>
-                                              <span className="text-xs text-black">{element.duration}ms</span>
+                                              <span className="text-sm font-semibold text-purple-700 bg-purple-200 px-2 py-0.5 rounded">텍스트</span>
+                                              <span className="text-base text-black">{element.duration}ms</span>
                                             </div>
-                                            <p className="text-sm text-gray-800 truncate" title={element.text}>
+                                            <p className="text-base text-gray-800 truncate" title={element.text}>
                                               {element.text || '(텍스트 없음)'}
                                             </p>
                                           </div>
@@ -2287,8 +2287,8 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                           <div className="flex items-center gap-2">
                                             <div>
                                               <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-semibold text-blue-700 bg-blue-200 px-2 py-0.5 rounded">이미지</span>
-                                                <span className="text-xs text-black">{element.duration}ms</span>
+                                                <span className="text-sm font-semibold text-blue-700 bg-blue-200 px-2 py-0.5 rounded">이미지</span>
+                                                <span className="text-base text-black">{element.duration}ms</span>
                                               </div>
                                             </div>
                                             {element.url && (
@@ -2304,11 +2304,11 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                           <div className="flex items-center gap-2">
                                             <div>
                                               <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-semibold text-green-700 bg-green-200 px-2 py-0.5 rounded">동영상</span>
-                                                <span className="text-xs text-black">{element.duration}ms</span>
+                                                <span className="text-sm font-semibold text-green-700 bg-green-200 px-2 py-0.5 rounded">동영상</span>
+                                                <span className="text-base text-black">{element.duration}ms</span>
                                               </div>
                                               {element.url && (
-                                                <p className="text-xs text-black truncate max-w-xs" title={element.url}>
+                                                <p className="text-base text-black truncate max-w-xs" title={element.url}>
                                                   {element.url.split('/').pop()}
                                                 </p>
                                               )}
@@ -2317,16 +2317,16 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                         ) : element.type === 'youtube' ? (
                                           <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                              <span className="text-xs font-semibold text-red-700 bg-red-200 px-2 py-0.5 rounded flex items-center gap-1">
+                                              <span className="text-sm font-semibold text-red-700 bg-red-200 px-2 py-0.5 rounded flex items-center gap-1">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
                                                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                                                 </svg>
                                                 유튜브
                                               </span>
-                                              <span className="text-xs text-black">{element.duration}ms</span>
+                                              <span className="text-base text-black">{element.duration}ms</span>
                                             </div>
                                             {element.url && (
-                                              <p className="text-xs text-black truncate max-w-xs" title={element.url}>
+                                              <p className="text-base text-black truncate max-w-xs" title={element.url}>
                                                 {element.url}
                                               </p>
                                             )}
@@ -2365,21 +2365,21 @@ export default function ContentManager({ device }: ContentManagerProps) {
                               <div className="space-y-2 pl-2 border-l-2 border-blue-300">
                                 {leftContents.map((element: any, index: number) => (
                                   <div key={index} className="flex items-start gap-3 p-2 bg-blue-50 rounded">
-                                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
                                       {index + 1}
                                     </span>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded text-xs font-medium">
+                                        <span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded text-base font-medium">
                                           {element.type === 'text' ? '텍스트' : element.type === 'image' ? '이미지' : element.type === 'video' ? '동영상' : '유튜브'}
                                         </span>
-                                        <span className="text-xs text-gray-600">{formatDuration(element.duration)}</span>
+                                        <span className="text-base text-gray-600">{formatDuration(element.duration)}</span>
                                       </div>
                                       {element.type === 'text' && element.text && (
-                                        <p className="text-sm text-gray-700 truncate">{element.text}</p>
+                                        <p className="text-base text-gray-700 truncate">{element.text}</p>
                                       )}
                                       {(element.type === 'image' || element.type === 'video' || element.type === 'youtube') && element.url && (
-                                        <p className="text-sm text-gray-600 truncate">{element.url}</p>
+                                        <p className="text-base text-gray-600 truncate">{element.url}</p>
                                       )}
                                     </div>
                                   </div>
@@ -2444,13 +2444,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       )}
                     </>
                   )}
-                  <div className="text-sm text-black">
+                  <div className="text-base text-black">
                     <span>재생 시간: {formatDuration(content.duration)}</span>
                     <span className="ml-3">순서: {content.order + 1}번째</span>
                   </div>
                   {/* 스케줄 정보 표시 */}
                   {content.scheduleType && content.scheduleType !== 'always' && (
-                    <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300">
+                    <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-base font-medium bg-blue-100 text-blue-800 border border-blue-300">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -2542,7 +2542,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           {element.type === 'text' && (
                             <>
                               <div>
-                                <label className="block text-sm font-medium mb-1">텍스트 내용</label>
+                                <label className="block text-base font-medium mb-1">텍스트 내용</label>
                                 <textarea
                                   value={editingElementData.text || ''}
                                   onChange={(e) => setEditingElementData({ ...editingElementData, text: e.target.value })}
@@ -2551,7 +2551,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">글자 크기 (픽셀)</label>
+                                <label className="block text-base font-medium mb-1">글자 크기 (픽셀)</label>
                                 <input
                                   type="number"
                                   value={editingElementData.fontSize || '32'}
@@ -2562,7 +2562,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">재생 시간</label>
+                                <label className="block text-base font-medium mb-1">재생 시간</label>
                                 <div className="grid grid-cols-3 gap-2">
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2578,7 +2578,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2595,7 +2595,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2612,13 +2612,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                                   </div>
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-sm font-medium mb-1">글자 색상</label>
+                                  <label className="block text-base font-medium mb-1">글자 색상</label>
                                   <div className="flex items-center gap-2">
                                     <input
                                       type="color"
@@ -2636,7 +2636,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1">배경 색상</label>
+                                  <label className="block text-base font-medium mb-1">배경 색상</label>
                                   <div className="flex items-center gap-2">
                                     <input
                                       type="color"
@@ -2661,13 +2661,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           {element.type === 'image' && (
                             <>
                               <div>
-                                <label className="block text-sm font-medium mb-1">현재 이미지</label>
+                                <label className="block text-base font-medium mb-1">현재 이미지</label>
                                 {element.url && (
                                   <img src={element.url} alt="현재 이미지" className="w-32 h-24 object-cover rounded border mb-2" />
                                 )}
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">새 이미지 선택 (변경하려면)</label>
+                                <label className="block text-base font-medium mb-1">새 이미지 선택 (변경하려면)</label>
                                 <input
                                   type="file"
                                   accept="image/*"
@@ -2681,7 +2681,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">재생 시간</label>
+                                <label className="block text-base font-medium mb-1">재생 시간</label>
                                 <div className="grid grid-cols-3 gap-2">
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2697,7 +2697,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2714,7 +2714,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2731,7 +2731,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                                   </div>
                                 </div>
                               </div>
@@ -2742,11 +2742,11 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           {element.type === 'video' && (
                             <>
                               <div>
-                                <label className="block text-sm font-medium mb-1">현재 동영상</label>
-                                <p className="text-sm text-gray-600 mb-2">{element.url}</p>
+                                <label className="block text-base font-medium mb-1">현재 동영상</label>
+                                <p className="text-base text-gray-600 mb-2">{element.url}</p>
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">새 동영상 선택 (변경하려면)</label>
+                                <label className="block text-base font-medium mb-1">새 동영상 선택 (변경하려면)</label>
                                 <input
                                   type="file"
                                   accept="video/*"
@@ -2760,7 +2760,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">재생 시간</label>
+                                <label className="block text-base font-medium mb-1">재생 시간</label>
                                 <div className="grid grid-cols-3 gap-2">
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2776,7 +2776,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2793,7 +2793,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2810,7 +2810,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                                   </div>
                                 </div>
                               </div>
@@ -2847,7 +2847,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           {element.type === 'youtube' && (
                             <>
                               <div>
-                                <label className="block text-sm font-medium mb-1">유튜브 URL</label>
+                                <label className="block text-base font-medium mb-1">유튜브 URL</label>
                                 <input
                                   type="text"
                                   value={editingElementData.url || ''}
@@ -2857,7 +2857,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium mb-1">재생 시간</label>
+                                <label className="block text-base font-medium mb-1">재생 시간</label>
                                 <div className="grid grid-cols-3 gap-2">
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2873,7 +2873,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">시간</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">시간</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2890,7 +2890,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">분</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">분</label>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <input
@@ -2907,7 +2907,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                       }}
                                       className="w-full px-2 py-1 border rounded-md text-center"
                                     />
-                                    <label className="text-xs text-gray-700 font-bold whitespace-nowrap">초</label>
+                                    <label className="text-base text-gray-700 font-bold whitespace-nowrap">초</label>
                                   </div>
                                 </div>
                               </div>
@@ -2962,7 +2962,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         // 보기 모드
                         <div>
                           <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                            <span className={`text-sm font-semibold px-2 py-0.5 rounded ${
                               element.type === 'text' ? 'text-purple-700 bg-purple-200' :
                               element.type === 'image' ? 'text-blue-700 bg-blue-200' :
                               element.type === 'video' ? 'text-green-700 bg-green-200' :
@@ -2972,20 +2972,20 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                element.type === 'image' ? '이미지' :
                                element.type === 'video' ? '동영상' : '유튜브'}
                             </span>
-                            <span className="text-xs text-black">{formatDuration(element.duration)}</span>
+                            <span className="text-base text-black">{formatDuration(element.duration)}</span>
                           </div>
 
                           {element.type === 'text' && (
-                            <p className="text-sm text-gray-800">{element.text}</p>
+                            <p className="text-base text-gray-800">{element.text}</p>
                           )}
                           {element.type === 'image' && element.url && (
                             <img src={element.url} alt="썸네일" className="w-24 h-18 object-cover rounded border" />
                           )}
                           {element.type === 'video' && element.url && (
-                            <p className="text-xs text-black">{element.url.split('/').pop()}</p>
+                            <p className="text-base text-black">{element.url.split('/').pop()}</p>
                           )}
                           {element.type === 'youtube' && element.url && (
-                            <p className="text-xs text-black truncate">{element.url}</p>
+                            <p className="text-base text-black truncate">{element.url}</p>
                           )}
                         </div>
                       )}

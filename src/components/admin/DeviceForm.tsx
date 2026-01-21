@@ -37,7 +37,7 @@ export default function DeviceForm({ onDeviceAdded }: DeviceFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="name" className="block text-base font-medium text-gray-700">
           디바이스 이름
         </label>
         <input
@@ -51,7 +51,7 @@ export default function DeviceForm({ onDeviceAdded }: DeviceFormProps) {
       </div>
 
       <div>
-        <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="location" className="block text-base font-medium text-gray-700">
           설치 위치
         </label>
         <input
