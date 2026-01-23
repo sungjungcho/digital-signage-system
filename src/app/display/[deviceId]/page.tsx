@@ -11,6 +11,7 @@ type Alert = {
   targetDeviceIds: string[];
   createdAt: string;
   expiresAt?: string;
+  duration?: number;
 };
 
 export default function DevicePreviewPage({ params }: { params: Promise<{ deviceId: string }> }) {
@@ -106,6 +107,42 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
       }
     };
   }, [deviceId]);
+
+  // 알림 자동 닫기 타이머
+  useEffect(() => {
+    if (!alert) return;
+
+    // duration이 있으면 해당 시간 후에 알림 닫기
+    if (alert.duration) {
+      console.log('[Alert] 자동 닫기 타이머 설정:', alert.duration, 'ms');
+      const timer = setTimeout(() => {
+        console.log('[Alert] 타이머 만료, 알림 닫기');
+        setAlert(null);
+      }, alert.duration);
+
+      return () => clearTimeout(timer);
+    }
+
+    // expiresAt이 있으면 해당 시간까지 남은 시간 계산
+    if (alert.expiresAt) {
+      const expiresTime = new Date(alert.expiresAt).getTime();
+      const now = Date.now();
+      const remaining = expiresTime - now;
+
+      if (remaining > 0) {
+        console.log('[Alert] expiresAt 기반 자동 닫기:', remaining, 'ms 후');
+        const timer = setTimeout(() => {
+          console.log('[Alert] expiresAt 만료, 알림 닫기');
+          setAlert(null);
+        }, remaining);
+
+        return () => clearTimeout(timer);
+      } else {
+        // 이미 만료된 알림이면 즉시 닫기
+        setAlert(null);
+      }
+    }
+  }, [alert]);
 
   // 디바이스 정보 및 콘텐츠 가져오기
   useEffect(() => {

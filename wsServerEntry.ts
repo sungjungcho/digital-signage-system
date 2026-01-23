@@ -51,6 +51,22 @@ const httpServer = http.createServer((req, res) => {
           console.log('=== 알림 브로드캐스트 종료 ===');
         }
 
+        // 콘텐츠 업데이트 알림 처리
+        if (type === 'contentUpdate') {
+          const { deviceId } = data;
+          console.log('=== 콘텐츠 업데이트 알림 ===');
+          console.log('대상 디바이스:', deviceId);
+
+          const ws = deviceSockets.get(deviceId);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            const message = JSON.stringify({ type: 'contentUpdate' });
+            ws.send(message);
+            console.log(`✓ 콘텐츠 업데이트 알림 전송 성공: ${deviceId}`);
+          } else {
+            console.log(`✗ 콘텐츠 업데이트 알림 전송 실패: ${deviceId} (연결 상태: ${ws ? ws.readyState : 'undefined'})`);
+          }
+        }
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
