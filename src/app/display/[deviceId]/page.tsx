@@ -184,10 +184,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     const updateFilteredContents = () => {
       const now = new Date();
       const filtered = filterContentsBySchedule(allContents, now);
-        전체콘텐츠: allContents.length,
-        필터링된콘텐츠: filtered.length,
-        현재시간: now.toLocaleString('ko-KR')
-      });
       setContents(filtered);
 
       // 현재 인덱스가 필터링된 콘텐츠 범위를 벗어나면 0으로 리셋
@@ -259,16 +255,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   }
 
   const currentContent = contents[currentContentIndex];
-    index: currentContentIndex,
-    type: currentContent.type,
-    id: currentContent.id,
-    hasElements: !!(currentContent as any).elements,
-    elementsCount: (currentContent as any).elements?.length || 0
-  });
-
-  // mixed 타입일 때 elements 상세 로그
-  if (currentContent.type === 'mixed') {
-  }
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center relative">

@@ -56,11 +56,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
       );
     } else if (existingContent.type === 'mixed') {
       // 복합형 콘텐츠 수정 (metadata 업데이트)
-        contentId,
-        metadataLength: data.metadata?.length,
-        metadataPreview: data.metadata?.substring(0, 100)
-      });
-
       db.prepare(`
         UPDATE devicecontent
         SET metadata = ?,
@@ -81,12 +76,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
       );
     } else if (existingContent.type === 'split_layout') {
       // 분할 레이아웃 콘텐츠 수정 (text, duration, metadata 업데이트)
-        contentId,
-        textLength: data.text?.length,
-        duration: data.duration,
-        metadataPreview: data.metadata?.substring(0, 100)
-      });
-
       db.prepare(`
         UPDATE devicecontent
         SET text = ?, duration = ?, metadata = ?,

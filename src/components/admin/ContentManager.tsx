@@ -350,11 +350,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
         const metadata = content.metadata ? JSON.parse(content.metadata) : { showNotices: true };
         setSplitLayoutOptions({ showNotices: metadata.showNotices ?? true });
 
-          id: content.id,
-          leftContents,
-          showNotices: metadata.showNotices
-        });
-      } catch (error) {
+        } catch (error) {
         console.error('분할 레이아웃 데이터 파싱 오류:', error);
         alert('분할 레이아웃 데이터를 불러오는 중 오류가 발생했습니다.');
       }
@@ -406,11 +402,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
     if (!editingMixedContentId) return;
 
     try {
-        contentId: editingMixedContentId,
-        elementsCount: editingMixedElements.length,
-        elements: editingMixedElements
-      });
-
       // 파일 업로드가 필요한 요소들 처리
       const processedElements = await Promise.all(
         editingMixedElements.map(async (element) => {
@@ -438,12 +429,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
         })
       );
 
-
       const metadataString = JSON.stringify(processedElements);
-        length: metadataString.length,
-        preview: metadataString.substring(0, 200)
-      });
-
       // metadata 업데이트
       const response = await fetch(`/api/devices/${device.id}/contents/${editingMixedContentId}`, {
         method: 'PUT',
@@ -657,7 +643,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
                       <input
                         type="number"
-                        value={currentMixedElement.fontSize ?? '32'}
+                        value={currentMixedElement.fontSize || '32'}
                         onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, fontSize: e.target.value })}
                         className="block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                         min="8"
@@ -1389,7 +1375,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
                       <input
                         type="number"
-                        value={currentLeftContent.fontSize ?? '32'}
+                        value={currentLeftContent.fontSize || '32'}
                         onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, fontSize: e.target.value })}
                         className="block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         min="8"
@@ -1553,7 +1539,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                   if (editingLeftContentId) {
                     // 수정 모드
-
                     const updatedContents = splitLayoutLeftContents.map(content =>
                       content.id === editingLeftContentId
                         ? {
@@ -1711,7 +1696,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     return;
                   }
 
-
                   // 파일 업로드가 필요한 콘텐츠 처리
                   const processedLeftContents = await Promise.all(
                     splitLayoutLeftContents.map(async (content) => {
@@ -1720,13 +1704,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                       // 파일이 있는 경우 업로드
                       if (file && (content.type === 'image' || content.type === 'video')) {
-                          fileName: file.name,
-                          fileSize: file.size,
-                          fileType: file.type,
-                          contentType: content.type,
-                          deviceId: device.id
-                        });
-
                         const formData = new FormData();
                         formData.append('file', file);
                         formData.append('deviceId', device.id);
@@ -1736,7 +1713,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           method: 'POST',
                           body: formData,
                         });
-
 
                         if (uploadResponse.ok) {
                           const uploadData = await uploadResponse.json();
@@ -1767,7 +1743,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     })
                   );
 
-
                   let response;
                   if (editingSplitLayoutId) {
                     // 수정 모드
@@ -1778,7 +1753,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       metadata: JSON.stringify({ showNotices: splitLayoutOptions.showNotices }),
                       ...scheduleData,
                     };
-
                     response = await fetch(`/api/devices/${device.id}/contents/${editingSplitLayoutId}`, {
                       method: 'PUT',
                       headers: {
@@ -1801,7 +1775,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       }),
                     });
                   }
-
 
                   if (response.ok) {
                     const data = await response.json();
@@ -2260,12 +2233,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         try {
                           // API는 elements로 보내지만, metadata도 체크 (하위 호환성)
                           const elements = (content as any).elements || JSON.parse(content.metadata!);
-                            contentId: content.id,
-                            hasElements: !!(content as any).elements,
-                            hasMetadata: !!content.metadata,
-                            elementsCount: Array.isArray(elements) ? elements.length : 0,
-                            elements
-                          });
                           if (Array.isArray(elements)) {
                             // order 기준으로 정렬
                             const sortedElements = [...elements].sort((a: any, b: any) => a.order - b.order);
@@ -2568,7 +2535,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 <label className="block text-base font-medium mb-1">글자 크기 (픽셀)</label>
                                 <input
                                   type="number"
-                                  value={editingElementData.fontSize ?? '32'}
+                                  value={editingElementData.fontSize || '32'}
                                   onChange={(e) => setEditingElementData({ ...editingElementData, fontSize: e.target.value })}
                                   className="w-full px-3 py-2 border rounded-md"
                                   min="8"

@@ -52,14 +52,6 @@ export async function GET(
       if (content.type === 'mixed' && content.metadata) {
         try {
           const elements = JSON.parse(content.metadata);
-            contentId: content.id,
-            metadataType: typeof content.metadata,
-            metadataLength: content.metadata?.length,
-            elementsType: typeof elements,
-            isArray: Array.isArray(elements),
-            elementsLength: Array.isArray(elements) ? elements.length : 'not array',
-            firstElement: Array.isArray(elements) && elements.length > 0 ? elements[0] : null
-          });
           return {
             ...content,
             elements,
@@ -72,12 +64,6 @@ export async function GET(
       }
       return content;
     });
-
-
-    // 복합형 콘텐츠가 있으면 상세 로그
-    const mixedContent = processedContents.find(c => c.type === 'mixed');
-    if (mixedContent) {
-    }
 
     return NextResponse.json(processedContents);
   } catch (error) {
