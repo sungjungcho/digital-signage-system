@@ -46,15 +46,12 @@ export function useDeviceContent(deviceId: string) {
         setIsLoading(true);
 
         // 1. 먼저 스케줄 기반 콘텐츠 확인
-        console.log('[useDeviceContent] 스케줄 확인 시작:', deviceId);
         const scheduleResponse = await fetch(`/api/schedules/active?deviceId=${deviceId}`);
 
         if (scheduleResponse.ok) {
           const scheduleData = await scheduleResponse.json();
-          console.log('[useDeviceContent] 스케줄 응답:', scheduleData);
 
           if (scheduleData.hasSchedule && scheduleData.contents && scheduleData.contents.length > 0) {
-            console.log('[useDeviceContent] 스케줄 콘텐츠 사용:', scheduleData.contents.length, '개');
             if (isMounted) {
               // 스케줄 콘텐츠를 Content 타입으로 변환
               const formattedContents: Content[] = scheduleData.contents.map((item: any) => {
@@ -95,12 +92,10 @@ export function useDeviceContent(deviceId: string) {
               return;
             }
           } else {
-            console.log('[useDeviceContent] 활성 스케줄 없음, 기본 콘텐츠 사용');
           }
         }
 
         // 2. 스케줄이 없으면 기본 콘텐츠 사용
-        console.log('[useDeviceContent] 기본 콘텐츠 조회 시작');
         const response = await fetch(`/api/devices/${deviceId}/contents`);
 
         if (!response.ok) {
@@ -108,7 +103,6 @@ export function useDeviceContent(deviceId: string) {
         }
 
         const data = await response.json();
-        console.log('[useDeviceContent] 기본 콘텐츠:', data.length, '개');
         
         if (isMounted) {
           // API 응답을 프론트엔드 Content 타입으로 변환
@@ -185,7 +179,6 @@ export function useDeviceContent(deviceId: string) {
 
     // 1분마다 스케줄 업데이트 확인
     const scheduleCheckInterval = setInterval(() => {
-      console.log('[useDeviceContent] 1분 주기 스케줄 체크');
       fetchDeviceContents();
     }, 60000);
 

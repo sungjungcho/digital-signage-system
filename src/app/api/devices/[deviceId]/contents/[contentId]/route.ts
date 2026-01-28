@@ -56,7 +56,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
       );
     } else if (existingContent.type === 'mixed') {
       // 복합형 콘텐츠 수정 (metadata 업데이트)
-      console.log('[API] 복합형 콘텐츠 수정:', {
         contentId,
         metadataLength: data.metadata?.length,
         metadataPreview: data.metadata?.substring(0, 100)
@@ -82,7 +81,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
       );
     } else if (existingContent.type === 'split_layout') {
       // 분할 레이아웃 콘텐츠 수정 (text, duration, metadata 업데이트)
-      console.log('[API] 분할 레이아웃 콘텐츠 수정:', {
         contentId,
         textLength: data.text?.length,
         duration: data.duration,
@@ -155,7 +153,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
     db.close();
 
     // 콘텐츠 업데이트 후 해당 디바이스에 WebSocket 알림 전송
-    console.log(`[API] 콘텐츠 수정 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
     if (broadcastContentUpdateToDevice) {
       // 5초 후에 새로고침하도록 타이머와 함께 전송
       setTimeout(() => {
@@ -181,7 +178,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ devi
     db.close();
 
     // 콘텐츠 삭제 후 해당 디바이스에 WebSocket 알림 전송
-    console.log(`[API] 콘텐츠 삭제 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
     if (broadcastContentUpdateToDevice) {
       // 5초 후에 새로고침하도록 타이머와 함께 전송
       setTimeout(() => {

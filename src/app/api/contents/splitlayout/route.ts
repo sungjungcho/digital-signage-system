@@ -78,12 +78,10 @@ export async function POST(request: NextRequest) {
     db.close();
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
-    console.log(`[API] 분할 레이아웃 추가 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
     setTimeout(() => {
       broadcastContentUpdateToDevice(deviceId);
     }, 5000);
 
-    console.log('[API /api/contents/splitlayout] Created split layout:', newContent);
     return NextResponse.json(newContent);
   } catch (error) {
     console.error('Split layout 콘텐츠 추가 중 오류:', error);

@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 interface Device {
   id: string;
   name: string;
+  alias: string;
   location: string;
   status: string;
 }
 
 export default function InitializeDevice() {
-  const [deviceId, setDeviceId] = useState('');
+  const [deviceAlias, setDeviceAlias] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
@@ -23,20 +24,16 @@ export default function InitializeDevice() {
     const fetchDevices = async () => {
       setIsLoadingDevices(true);
       try {
-        console.log('[InitializeDevice] Fetching devices from /api/devices');
         const response = await fetch('/api/devices');
-        console.log('[InitializeDevice] Response status:', response.status, response.ok);
 
         if (!response.ok) {
           throw new Error(`API 요청 실패: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('[InitializeDevice] Received data:', data);
 
         if (Array.isArray(data)) {
           setDevices(data);
-          console.log('[InitializeDevice] Devices set:', data.length, 'devices');
         } else {
           console.error('[InitializeDevice] Data is not an array:', data);
           setError('디바이스 목록 형식이 올바르지 않습니다.');
@@ -55,8 +52,8 @@ export default function InitializeDevice() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!deviceId.trim()) {
-      setError('디바이스 ID를 입력하거나 선택해주세요.');
+    if (!deviceAlias.trim()) {
+      setError('디바이스를 선택하거나 별칭을 입력해주세요.');
       return;
     }
 
@@ -64,14 +61,13 @@ export default function InitializeDevice() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/devices/${deviceId}`);
+      const response = await fetch(`/api/devices/${deviceAlias}`);
 
       if (!response.ok) {
-        throw new Error('유효하지 않은 디바이스 ID입니다.');
+        throw new Error('유효하지 않은 디바이스입니다.');
       }
 
-      localStorage.setItem('deviceId', deviceId);
-      router.push(`/display/${deviceId}`);
+      router.push(`/display/${deviceAlias}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -122,8 +118,8 @@ export default function InitializeDevice() {
             </div>
 
             <div>
-              <label htmlFor="deviceId" className="block text-sm font-semibold text-gray-700 mb-2">
-                디바이스 ID
+              <label htmlFor="deviceAlias" className="block text-sm font-semibold text-gray-700 mb-2">
+                디바이스
               </label>
 
               {inputMethod === 'select' ? (
@@ -134,9 +130,9 @@ export default function InitializeDevice() {
                     </svg>
                   </div>
                   <select
-                    id="deviceId"
-                    value={deviceId}
-                    onChange={(e) => setDeviceId(e.target.value)}
+                    id="deviceAlias"
+                    value={deviceAlias}
+                    onChange={(e) => setDeviceAlias(e.target.value)}
                     className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
                     disabled={isLoading || isLoadingDevices}
                   >
@@ -146,7 +142,7 @@ export default function InitializeDevice() {
                        '디바이스를 선택해주세요'}
                     </option>
                     {devices.map(device => (
-                      <option key={device.id} value={device.id}>
+                      <option key={device.id} value={device.alias}>
                         {device.name} - {device.location} ({device.status === 'online' ? '온라인' : '오프라인'})
                       </option>
                     ))}
@@ -161,21 +157,13 @@ export default function InitializeDevice() {
                   </div>
                   <input
                     type="text"
-                    id="deviceId"
-                    value={deviceId}
-                    onChange={(e) => setDeviceId(e.target.value)}
-                    placeholder="디바이스 ID를 직접 입력하세요"
+                    id="deviceAlias"
+                    value={deviceAlias}
+                    onChange={(e) => setDeviceAlias(e.target.value)}
+                    placeholder="디바이스 별칭을 입력하세요"
                     className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
                     disabled={isLoading}
                   />
-                </div>
-              )}
-
-              {deviceId && (
-                <div className="mt-2 p-2 bg-teal-50 border border-teal-200 rounded-lg">
-                  <p className="text-xs text-teal-700 font-medium">
-                    선택된 디바이스 ID: <span className="font-mono">{deviceId}</span>
-                  </p>
                 </div>
               )}
 
@@ -207,7 +195,7 @@ export default function InitializeDevice() {
 
             <button
               type="submit"
-              disabled={isLoading || !deviceId}
+              disabled={isLoading || !deviceAlias}
               className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white py-3.5 px-4 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-md transform hover:scale-[1.02]"
             >
               {isLoading ? (

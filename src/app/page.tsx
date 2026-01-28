@@ -1,7 +1,44 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+interface User {
+  id: string;
+  username: string;
+  role: 'user' | 'superadmin';
+  status: string;
+  name: string | null;
+}
+
 export default function Home() {
-  // 자동 리다이렉트 제거 - 항상 메인 페이지 표시
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch('/api/auth/check');
+        const data = await res.json();
+        if (data.authenticated) {
+          setUser(data.user);
+        }
+      } catch {
+        // 에러 무시
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch {
+      // 에러 무시
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-600">
@@ -16,13 +53,37 @@ export default function Home() {
             </div>
             <h1 className="text-2xl font-bold text-white">디지털 사이니지 시스템</h1>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex items-center space-x-4">
+            {user && (
+              <span className="text-white/80 text-sm">
+                {user.name || user.username}님
+                {user.role === 'superadmin' && (
+                  <span className="ml-2 px-2 py-0.5 bg-purple-500/50 rounded text-xs">
+                    슈퍼관리자
+                  </span>
+                )}
+              </span>
+            )}
+            {user?.role === 'superadmin' && (
+              <a
+                href="/superadmin"
+                className="px-4 py-2 bg-purple-500/50 hover:bg-purple-500/70 text-white rounded-lg transition backdrop-blur-sm"
+              >
+                슈퍼관리자
+              </a>
+            )}
             <a
               href="/admin"
               className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition backdrop-blur-sm"
             >
               관리자
             </a>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-500/50 hover:bg-red-500/70 text-white rounded-lg transition backdrop-blur-sm"
+            >
+              로그아웃
+            </button>
           </div>
         </div>
       </header>
@@ -54,7 +115,7 @@ export default function Home() {
               디바이스 연결하기
             </a>
             <a
-              href="/admin/login"
+              href="/admin"
               className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/30 transition border border-white/30"
             >
               관리 시작하기

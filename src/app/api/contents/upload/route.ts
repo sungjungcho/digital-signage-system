@@ -58,7 +58,6 @@ export async function POST(req: Request) {
 
     // skipDbInsert가 true면 파일만 업로드하고 URL만 반환
     if (skipDbInsert) {
-      console.log(`[API] 파일만 업로드 완료 (DB 저장 생략): ${publicPath}`);
       return NextResponse.json({
         url: publicPath,
         fileName: uniqueFileName
@@ -99,7 +98,6 @@ export async function POST(req: Request) {
     db.close();
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
-    console.log(`[API] 파일 업로드 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
     if (broadcastContentUpdateToDevice) {
       setTimeout(() => {
         broadcastContentUpdateToDevice!(deviceId);

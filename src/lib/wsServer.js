@@ -13,13 +13,10 @@ if (!globalThis.wss) {
     wss = new WebSocketServer({ port: 3031, host: '0.0.0.0' }); // 모든 네트워크에서 접근 가능
     globalThis.wss = wss;
     globalThis.deviceSockets = deviceSockets;
-    console.log('WebSocket 서버 새로 생성됨');
   } catch (err) {
-    console.log('WebSocket 서버 생성 실패:', err);
     // 기존 서버가 있다면 재사용
     if (globalThis.wss) {
       wss = globalThis.wss;
-      console.log('기존 WebSocket 서버 재사용');
     } else {
       throw err;
     }
@@ -32,7 +29,6 @@ if (!globalThis.wss) {
     if (!urlString.startsWith('/')) urlString = '/' + urlString;
     const url = new URL(urlString, `http://${req.headers.host}`);
     const deviceId = url.searchParams.get('deviceId');
-    console.log('WebSocket 연결됨:', deviceId, req.url);
     if (!deviceId) {
       ws.close(1008, 'deviceId required');
       return;
@@ -42,7 +38,6 @@ if (!globalThis.wss) {
     if (globalThis.deviceSockets) {
       globalThis.deviceSockets.set(deviceId, ws);
     }
-    console.log('디바이스 연결 등록됨:', deviceId, ', 총 연결 수:', deviceSockets.size);
 
     // 연결 시점에 해당 디바이스의 최신 알림 전송
     const deviceAlerts = alerts.filter((a) => a.targetDeviceIds.includes(deviceId));
@@ -56,12 +51,10 @@ if (!globalThis.wss) {
       if (globalThis.deviceSockets) {
         globalThis.deviceSockets.delete(deviceId);
       }
-      console.log('WebSocket 연결 해제:', deviceId, ', 남은 연결 수:', deviceSockets.size);
     });
   });
 
   wss.on('listening', () => {
-    console.log('WebSocket 서버가 3031 포트에서 실행 중입니다.');
   });
 } else {
   wss = globalThis.wss;
@@ -71,24 +64,15 @@ if (!globalThis.wss) {
     globalDeviceSockets.forEach((ws, deviceId) => {
       deviceSockets.set(deviceId, ws);
     });
-    console.log('기존 디바이스 연결 복원됨, 연결된 디바이스 수:', deviceSockets.size);
   }
 }
 
 // 알림 브로드캐스트 함수
 function broadcastAlertToDevices(alert) {
-  console.log('=== 알림 브로드캐스트 시작 ===');
-  console.log('알림 ID:', alert.id);
-  console.log('알림 메시지:', alert.message);
-  console.log('대상 디바이스:', alert.targetDeviceIds);
-  console.log('현재 연결된 디바이스 수:', deviceSockets.size);
-  console.log('연결된 디바이스 목록:', Array.from(deviceSockets.keys()));
 
   // 글로벌 저장소 확인
   const globalSockets = globalThis.deviceSockets;
   if (globalSockets) {
-    console.log('글로벌 연결된 디바이스 수:', globalSockets.size);
-    console.log('글로벌 연결된 디바이스 목록:', Array.from(globalSockets.keys()));
   }
 
   alert.targetDeviceIds.forEach((deviceId) => {
@@ -96,12 +80,9 @@ function broadcastAlertToDevices(alert) {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const message = JSON.stringify({ type: 'alert', alert });
       ws.send(message);
-      console.log(`✓ 알림 전송 성공: ${deviceId}`);
     } else {
-      console.log(`✗ 알림 전송 실패: ${deviceId} (연결 상태: ${ws ? ws.readyState : 'undefined'})`);
     }
   });
-  console.log('=== 알림 브로드캐스트 종료 ===');
 }
 
 // 단일 디바이스에 알림 닫기 메시지 전송
@@ -109,9 +90,7 @@ function broadcastCloseAlertToDevice(deviceId) {
   const ws = deviceSockets.get(deviceId);
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'closeAlert' }));
-    console.log(`알림 닫기 전송: ${deviceId}`);
   } else {
-    console.log(`알림 닫기: 연결 없음: ${deviceId}`);
   }
 }
 
@@ -120,22 +99,17 @@ function broadcastContentUpdateToDevice(deviceId) {
   const ws = deviceSockets.get(deviceId);
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'contentUpdate' }));
-    console.log(`콘텐츠 업데이트 전송: ${deviceId}`);
   } else {
-    console.log(`콘텐츠 업데이트: 연결 없음: ${deviceId}`);
   }
 }
 
 // 모든 디바이스에 환자 명단 업데이트 통지
 function broadcastPatientListUpdate() {
   const activeSockets = globalThis.deviceSockets || deviceSockets;
-  console.log(`환자 명단 업데이트 브로드캐스트 시작, 연결된 디바이스 수: ${activeSockets.size}`);
   activeSockets.forEach((ws, deviceId) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'patientListUpdate' }));
-      console.log(`환자 명단 업데이트 전송 성공: ${deviceId}`);
     } else {
-      console.log(`환자 명단 업데이트 전송 실패 (연결 상태: ${ws ? ws.readyState : 'undefined'}): ${deviceId}`);
     }
   });
 }

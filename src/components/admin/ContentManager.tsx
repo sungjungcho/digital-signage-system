@@ -159,11 +159,9 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
       if (existingSplitLayout && !editingSplitLayoutId) {
         // 기존 split_layout이 있으면 자동으로 수정 모드로 전환
-        console.log('[자동 로드] 기존 분할 레이아웃 발견, 수정 모드로 전환:', existingSplitLayout.id);
         handleEditContent(existingSplitLayout);
       } else if (!existingSplitLayout) {
         // 기존 split_layout이 없으면 새로 추가 모드
-        console.log('[자동 로드] 기존 분할 레이아웃 없음, 새로 추가 모드');
         setEditingSplitLayoutId(null);
         setSplitLayoutLeftContents([]);
         setSplitLayoutOptions({ showNotices: true });
@@ -352,7 +350,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
         const metadata = content.metadata ? JSON.parse(content.metadata) : { showNotices: true };
         setSplitLayoutOptions({ showNotices: metadata.showNotices ?? true });
 
-        console.log('[수정 모드] 분할 레이아웃 로드:', {
           id: content.id,
           leftContents,
           showNotices: metadata.showNotices
@@ -409,7 +406,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
     if (!editingMixedContentId) return;
 
     try {
-      console.log('[ContentManager] 복합형 콘텐츠 저장 시작:', {
         contentId: editingMixedContentId,
         elementsCount: editingMixedElements.length,
         elements: editingMixedElements
@@ -419,7 +415,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
       const processedElements = await Promise.all(
         editingMixedElements.map(async (element) => {
           if (element.file && (element.type === 'image' || element.type === 'video')) {
-            console.log('[ContentManager] 파일 업로드 시작:', element.type);
             // 파일 업로드
             const formData = new FormData();
             formData.append('file', element.file);
@@ -431,7 +426,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
             if (uploadResponse.ok) {
               const { url } = await uploadResponse.json();
-              console.log('[ContentManager] 파일 업로드 완료:', url);
               return { ...element, url, file: undefined };
             } else {
               console.error('[ContentManager] 파일 업로드 실패');
@@ -444,10 +438,8 @@ export default function ContentManager({ device }: ContentManagerProps) {
         })
       );
 
-      console.log('[ContentManager] 처리된 요소들:', processedElements);
 
       const metadataString = JSON.stringify(processedElements);
-      console.log('[ContentManager] 저장할 metadata:', {
         length: metadataString.length,
         preview: metadataString.substring(0, 200)
       });
@@ -464,7 +456,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
       });
 
       if (response.ok) {
-        console.log('[ContentManager] 저장 성공');
         alert('복합형 콘텐츠가 수정되었습니다.');
         setShowMixedEditModal(false);
         setEditingMixedContentId(null);
@@ -520,8 +511,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
     try {
       const response = await fetch(`/api/devices/${device.id}/contents`);
       const data = await response.json();
-      console.log('[ContentManager] fetchContents 응답:', data);
-      console.log('[ContentManager] 복합형 콘텐츠:', data.filter((c: any) => c.type === 'mixed'));
       setContents(data);
       return data;
     } catch (error) {
@@ -668,7 +657,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
                       <input
                         type="number"
-                        value={currentMixedElement.fontSize || '32'}
+                        value={currentMixedElement.fontSize ?? '32'}
                         onChange={(e) => setCurrentMixedElement({ ...currentMixedElement, fontSize: e.target.value })}
                         className="block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                         min="8"
@@ -1400,7 +1389,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
                       <input
                         type="number"
-                        value={currentLeftContent.fontSize || '32'}
+                        value={currentLeftContent.fontSize ?? '32'}
                         onChange={(e) => setCurrentLeftContent({ ...currentLeftContent, fontSize: e.target.value })}
                         className="block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         min="8"
@@ -1564,9 +1553,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                   if (editingLeftContentId) {
                     // 수정 모드
-                    console.log('[왼쪽 콘텐츠 수정] 수정 전 데이터:', splitLayoutLeftContents);
-                    console.log('[왼쪽 콘텐츠 수정] 수정할 ID:', editingLeftContentId);
-                    console.log('[왼쪽 콘텐츠 수정] 새 데이터:', currentLeftContent);
 
                     const updatedContents = splitLayoutLeftContents.map(content =>
                       content.id === editingLeftContentId
@@ -1583,7 +1569,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           }
                         : content
                     );
-                    console.log('[왼쪽 콘텐츠 수정] 수정 후 데이터:', updatedContents);
                     setSplitLayoutLeftContents(updatedContents);
                     setEditingLeftContentId(null);
                   } else {
@@ -1726,7 +1711,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     return;
                   }
 
-                  console.log('분할 레이아웃 추가 시작:', device.id);
 
                   // 파일 업로드가 필요한 콘텐츠 처리
                   const processedLeftContents = await Promise.all(
@@ -1736,7 +1720,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
 
                       // 파일이 있는 경우 업로드
                       if (file && (content.type === 'image' || content.type === 'video')) {
-                        console.log('[파일 업로드] 시작:', {
                           fileName: file.name,
                           fileSize: file.size,
                           fileType: file.type,
@@ -1754,11 +1737,9 @@ export default function ContentManager({ device }: ContentManagerProps) {
                           body: formData,
                         });
 
-                        console.log('[파일 업로드] 응답 상태:', uploadResponse.status);
 
                         if (uploadResponse.ok) {
                           const uploadData = await uploadResponse.json();
-                          console.log('[파일 업로드] 성공:', uploadData);
                           // 업로드된 URL로 교체
                           return {
                             ...contentWithoutFile,
@@ -1786,7 +1767,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     })
                   );
 
-                  console.log('[분할 레이아웃] 처리된 왼쪽 콘텐츠:', processedLeftContents);
 
                   let response;
                   if (editingSplitLayoutId) {
@@ -1798,7 +1778,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       metadata: JSON.stringify({ showNotices: splitLayoutOptions.showNotices }),
                       ...scheduleData,
                     };
-                    console.log('[분할 레이아웃 수정] 전송 데이터:', updateData);
 
                     response = await fetch(`/api/devices/${device.id}/contents/${editingSplitLayoutId}`, {
                       method: 'PUT',
@@ -1823,11 +1802,9 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     });
                   }
 
-                  console.log('응답 상태:', response.status);
 
                   if (response.ok) {
                     const data = await response.json();
-                    console.log(`분할 레이아웃 ${editingSplitLayoutId ? '수정' : '추가'} 성공:`, data);
                     alert(`분할 레이아웃이 ${editingSplitLayoutId ? '수정' : '추가'}되었습니다!`);
 
                     // 초기화
@@ -2283,7 +2260,6 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         try {
                           // API는 elements로 보내지만, metadata도 체크 (하위 호환성)
                           const elements = (content as any).elements || JSON.parse(content.metadata!);
-                          console.log('[ContentManager] 복합형 요소 렌더링:', {
                             contentId: content.id,
                             hasElements: !!(content as any).elements,
                             hasMetadata: !!content.metadata,
@@ -2592,7 +2568,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 <label className="block text-base font-medium mb-1">글자 크기 (픽셀)</label>
                                 <input
                                   type="number"
-                                  value={editingElementData.fontSize || '32'}
+                                  value={editingElementData.fontSize ?? '32'}
                                   onChange={(e) => setEditingElementData({ ...editingElementData, fontSize: e.target.value })}
                                   className="w-full px-3 py-2 border rounded-md"
                                   min="8"

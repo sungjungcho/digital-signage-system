@@ -28,7 +28,6 @@ export function addAlert(message: string, targetDeviceIds: string[], expiresAt?:
     duration,
   };
   alerts.push(alert);
-  console.log('알림 생성됨:', alert.id, '대상 디바이스:', targetDeviceIds);
   return alert;
 }
 

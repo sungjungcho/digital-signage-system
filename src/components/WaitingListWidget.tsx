@@ -30,10 +30,8 @@ export default function WaitingListWidget({ className = '', deviceId }: WaitingL
 
   const fetchPatients = async () => {
     try {
-      console.log('환자 목록 새로고침 중...');
       const response = await fetch('/api/patients');
       const data = await response.json();
-      console.log('받아온 환자 데이터:', data);
       setPatients(data);
     } catch (error) {
       console.error('환자 목록 가져오기 오류:', error);
@@ -49,7 +47,6 @@ export default function WaitingListWidget({ className = '', deviceId }: WaitingL
   // 환자 목록 업데이트를 위한 커스텀 이벤트 리스너
   useEffect(() => {
     const handlePatientUpdate = () => {
-      console.log('환자 목록 업데이트 이벤트 수신, 새로고침 실행');
       fetchPatients();
     };
 

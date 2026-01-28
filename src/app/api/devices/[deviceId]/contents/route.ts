@@ -4,13 +4,39 @@ import path from 'path';
 
 const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
+// UUID 형식인지 확인하는 함수
+function isUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+// deviceId 또는 alias로 실제 deviceId 조회
+function getDeviceId(db: Database.Database, deviceIdOrAlias: string): string | null {
+  if (isUUID(deviceIdOrAlias)) {
+    const device = db.prepare('SELECT id FROM device WHERE id = ?').get(deviceIdOrAlias) as any;
+    return device?.id || null;
+  }
+  const device = db.prepare('SELECT id FROM device WHERE alias = ?').get(deviceIdOrAlias) as any;
+  return device?.id || null;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
-    const { deviceId } = await params;
+    const { deviceId: deviceIdOrAlias } = await params;
     const db = new Database(dbPath);
+
+    // alias인 경우 실제 deviceId로 변환
+    const deviceId = getDeviceId(db, deviceIdOrAlias);
+    if (!deviceId) {
+      db.close();
+      return NextResponse.json(
+        { error: '디바이스를 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
 
     // 데이터베이스에서 디바이스별 콘텐츠 목록 조회
     const deviceContents = db.prepare(`
@@ -26,7 +52,6 @@ export async function GET(
       if (content.type === 'mixed' && content.metadata) {
         try {
           const elements = JSON.parse(content.metadata);
-          console.log('[API] 복합형 콘텐츠 파싱:', {
             contentId: content.id,
             metadataType: typeof content.metadata,
             metadataLength: content.metadata?.length,
@@ -48,12 +73,10 @@ export async function GET(
       return content;
     });
 
-    console.log(`[API] 디바이스 ${deviceId}의 콘텐츠 ${processedContents.length}개 조회됨`);
 
     // 복합형 콘텐츠가 있으면 상세 로그
     const mixedContent = processedContents.find(c => c.type === 'mixed');
     if (mixedContent) {
-      console.log('[API] 복합형 콘텐츠 최종 데이터:', JSON.stringify(mixedContent, null, 2));
     }
 
     return NextResponse.json(processedContents);

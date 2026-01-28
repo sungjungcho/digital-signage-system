@@ -4,6 +4,7 @@ import { useEffect, useState, use, useRef } from "react";
 import type { devicecontent as DeviceContent } from "@/types/device";
 import MixedContentDisplay from "@/components/MixedContentDisplay";
 import { filterContentsBySchedule } from "@/lib/scheduleUtils";
+import PinCodeModal from "@/components/display/PinCodeModal";
 
 type Alert = {
   id: string;
@@ -22,11 +23,28 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   const [contents, setContents] = useState<DeviceContent[]>([]); // 스케줄 필터링된 콘텐츠
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
   const [deviceInfo, setDeviceInfo] = useState<{ name: string; location: string } | null>(null);
+  const [realDeviceId, setRealDeviceId] = useState<string | null>(null); // 실제 디바이스 ID (UUID)
   const [loading, setLoading] = useState(true);
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [checkingPin, setCheckingPin] = useState(true);
+
+  // PIN 검증 상태 확인
+  useEffect(() => {
+    const verified = sessionStorage.getItem(`device_pin_verified_${deviceId}`);
+    if (verified === 'true') {
+      setIsPinVerified(true);
+    }
+    setCheckingPin(false);
+  }, [deviceId]);
+
+  const handlePinSuccess = (deviceName: string) => {
+    setIsPinVerified(true);
+  };
 
   // WebSocket 연결 및 알림 수신
   useEffect(() => {
-    if (!deviceId) return;
+    // realDeviceId가 설정될 때까지 대기
+    if (!realDeviceId) return;
 
     let reconnectTimer: NodeJS.Timeout;
     let isCleanedUp = false;
@@ -34,54 +52,44 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     const connect = () => {
       if (isCleanedUp) return;
 
-      const wsUrl = `ws://${window.location.hostname}:3031?deviceId=${deviceId}`;
-      console.log('[WebSocket] 연결 시도:', wsUrl);
+      const wsUrl = `ws://${window.location.hostname}:3031?deviceId=${realDeviceId}`;
 
       try {
         const ws = new window.WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
-          console.log('[WebSocket] ✅ 연결 성공:', deviceId);
         };
 
         ws.onerror = () => {
           // 초기 연결 오류는 무시 (정상적인 과정)
-          console.log('[WebSocket] 연결 대기 중...');
         };
 
         ws.onmessage = (event: MessageEvent) => {
-          console.log('[WebSocket] 📨 메시지 수신:', event.data);
           let data;
           try {
             data = JSON.parse(event.data);
-            console.log('[WebSocket] 파싱된 데이터:', data);
           } catch (e) {
             console.error('[WebSocket] JSON 파싱 오류:', e);
             return;
           }
 
           if (data.type === "alert" && data.alert) {
-            console.log('[WebSocket] 🚨 알림 수신:', data.alert);
             setAlert(data.alert);
           } else if (data.type === "init" && data.alerts && Array.isArray(data.alerts)) {
-            console.log('[WebSocket] 🔄 초기화 알림:', data.alerts);
             if (data.alerts.length > 0) setAlert(data.alerts[data.alerts.length - 1]);
           } else if (data.type === "contentUpdate") {
             // 콘텐츠 업데이트 알림 수신 시 페이지 새로고침
-            console.log('[WebSocket] ✅ 콘텐츠 업데이트 알림 수신! 페이지를 새로고침합니다.');
             window.location.reload();
           }
         };
 
         ws.onclose = () => {
-          console.log('[WebSocket] 🔌 연결 종료:', deviceId);
           wsRef.current = null;
 
           // 5초 후 재연결 시도
           if (!isCleanedUp) {
             reconnectTimer = setTimeout(() => {
-              console.log('[WebSocket] 재연결 시도...');
               connect();
             }, 5000);
           }
@@ -98,7 +106,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     connect();
 
     return () => {
-      console.log('[WebSocket] 🧹 정리(cleanup) 실행');
       isCleanedUp = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (wsRef.current) {
@@ -106,7 +113,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
         wsRef.current = null;
       }
     };
-  }, [deviceId]);
+  }, [realDeviceId]);
 
   // 알림 자동 닫기 타이머
   useEffect(() => {
@@ -114,9 +121,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
 
     // duration이 있으면 해당 시간 후에 알림 닫기
     if (alert.duration) {
-      console.log('[Alert] 자동 닫기 타이머 설정:', alert.duration, 'ms');
       const timer = setTimeout(() => {
-        console.log('[Alert] 타이머 만료, 알림 닫기');
         setAlert(null);
       }, alert.duration);
 
@@ -130,9 +135,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
       const remaining = expiresTime - now;
 
       if (remaining > 0) {
-        console.log('[Alert] expiresAt 기반 자동 닫기:', remaining, 'ms 후');
         const timer = setTimeout(() => {
-          console.log('[Alert] expiresAt 만료, 알림 닫기');
           setAlert(null);
         }, remaining);
 
@@ -148,15 +151,14 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   useEffect(() => {
     const fetchDeviceInfo = async () => {
       try {
-        console.log('[디바이스 페이지] deviceId:', deviceId);
         const deviceResponse = await fetch(`/api/devices/${deviceId}`);
         if (!deviceResponse.ok) {
           console.error("디바이스 정보를 불러오는데 실패했습니다.");
           return;
         }
         const deviceData = await deviceResponse.json();
-        console.log('[디바이스 페이지] 디바이스 정보:', deviceData);
         setDeviceInfo({ name: deviceData.name, location: deviceData.location });
+        setRealDeviceId(deviceData.id); // 실제 디바이스 ID 저장
 
         // 모든 콘텐츠 가져오기
         const contentsResponse = await fetch(`/api/devices/${deviceId}/contents`);
@@ -165,7 +167,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
           return;
         }
         const contentsData = await contentsResponse.json();
-        console.log('[디바이스 페이지] 전체 콘텐츠 데이터:', contentsData);
 
         const sortedContents = contentsData.sort((a: DeviceContent, b: DeviceContent) => a.order - b.order);
         setAllContents(sortedContents);
@@ -183,7 +184,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     const updateFilteredContents = () => {
       const now = new Date();
       const filtered = filterContentsBySchedule(allContents, now);
-      console.log('[디바이스 페이지] 스케줄 필터링:', {
         전체콘텐츠: allContents.length,
         필터링된콘텐츠: filtered.length,
         현재시간: now.toLocaleString('ko-KR')
@@ -214,6 +214,20 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     return () => clearTimeout(timer);
   }, [currentContentIndex, contents]);
 
+  // PIN 검증 상태 확인 중
+  if (checkingPin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <div className="text-white text-2xl">확인 중...</div>
+      </div>
+    );
+  }
+
+  // PIN 미검증 시 모달 표시
+  if (!isPinVerified) {
+    return <PinCodeModal deviceId={deviceId} onSuccess={handlePinSuccess} />;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
@@ -234,7 +248,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   ) : null;
 
   if (contents.length === 0) {
-    console.log('[디바이스 페이지] 콘텐츠가 없음 - contents.length:', contents.length);
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
         {alertModal}
@@ -246,7 +259,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   }
 
   const currentContent = contents[currentContentIndex];
-  console.log('[디바이스 페이지] 현재 표시 중인 콘텐츠:', {
     index: currentContentIndex,
     type: currentContent.type,
     id: currentContent.id,
@@ -256,7 +268,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
 
   // mixed 타입일 때 elements 상세 로그
   if (currentContent.type === 'mixed') {
-    console.log('[디바이스 페이지] Mixed 콘텐츠 elements 상세:', (currentContent as any).elements);
   }
 
   return (

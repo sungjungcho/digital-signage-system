@@ -45,8 +45,6 @@ export default function MixedContentDisplay({ elements }: MixedContentDisplayPro
       return;
     }
 
-    console.log('[MixedContent] 받은 elements:', elements);
-    console.log('[MixedContent] elements 타입 확인:', elements.map(e => ({ type: e.type, hasLeftContents: !!e.leftContents, leftContentsCount: e.leftContents?.length })));
 
     // order 기준으로 정렬
     const sorted = [...elements].sort((a, b) => a.order - b.order);
@@ -62,7 +60,6 @@ export default function MixedContentDisplay({ elements }: MixedContentDisplayPro
     let mounted = true;
 
     const loadMedia = async () => {
-      console.log('[MixedContent] 미디어 로딩 시작:', sortedElements.length, '개');
 
       try {
         // 모든 이미지를 순차적으로 로드
@@ -72,7 +69,6 @@ export default function MixedContentDisplay({ elements }: MixedContentDisplayPro
           if (element.type === 'image' && element.url) {
             // 이미 로드된 이미지가 있으면 재사용
             if (preloadedImages.current[element.url]) {
-              console.log('[MixedContent] 캐시된 이미지 사용:', element.url);
               continue;
             }
 
@@ -83,7 +79,6 @@ export default function MixedContentDisplay({ elements }: MixedContentDisplayPro
               img.onload = () => {
                 if (mounted && isMountedRef.current && element.url) {
                   preloadedImages.current[element.url] = img;
-                  console.log('[MixedContent] 이미지 로드 완료:', element.url);
                 }
                 resolve();
               };
@@ -109,7 +104,6 @@ export default function MixedContentDisplay({ elements }: MixedContentDisplayPro
         }
 
         if (mounted && isMountedRef.current) {
-          console.log('[MixedContent] 모든 미디어 로드 완료');
           setIsReady(true);
         }
       } catch (error) {
@@ -130,7 +124,16 @@ export default function MixedContentDisplay({ elements }: MixedContentDisplayPro
   useEffect(() => {
     if (sortedElements.length === 0) return;
 
+    // currentIndex가 범위를 벗어나면 0으로 리셋
+    if (currentIndex >= sortedElements.length) {
+      setCurrentIndex(0);
+      return;
+    }
+
     const currentElement = sortedElements[currentIndex];
+
+    // currentElement가 없으면 리턴
+    if (!currentElement) return;
 
     // 동영상 길이만큼 재생하는 경우 (duration === 0)
     if (currentElement.type === 'video' && currentElement.duration === 0) {

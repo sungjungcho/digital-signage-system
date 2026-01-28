@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
+import Database from 'better-sqlite3';
+import path from 'path';
+import bcrypt from 'bcryptjs';
+import type { User } from '@/types/user';
 
-// 환경변수에서 시크릿 키를 가져오거나 기본값 사용 (프로덕션에서는 반드시 환경변수 사용)
 const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 const secret = new TextEncoder().encode(SECRET_KEY);
-
-// 임시 관리자 계정 (실제로는 데이터베이스에서 관리해야 함)
-const ADMIN_USERS = [
-  { username: 'admin', password: 'admin123' },
-  { username: 'manager', password: 'manager123' },
-];
+const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,23 +21,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 사용자 인증 확인
-    const user = ADMIN_USERS.find(
-      (u) => u.username === username && u.password === password
-    );
+    const db = new Database(dbPath);
+
+    // 사용자 조회
+    const user = db.prepare(
+      'SELECT * FROM users WHERE username = ?'
+    ).get(username) as User | undefined;
 
     if (!user) {
+      db.close();
       return NextResponse.json(
         { message: '아이디 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401 }
       );
     }
 
-    // JWT 토큰 생성
-    const token = await new SignJWT({ username })
+    // 비밀번호 검증
+    const isValidPassword = await bcrypt.compare(password, user.password_hash || '');
+    if (!isValidPassword) {
+      db.close();
+      return NextResponse.json(
+        { message: '아이디 또는 비밀번호가 올바르지 않습니다.' },
+        { status: 401 }
+      );
+    }
+
+    // 승인 상태 확인
+    if (user.status === 'pending') {
+      db.close();
+      return NextResponse.json(
+        { message: '계정 승인 대기 중입니다. 관리자에게 문의하세요.' },
+        { status: 403 }
+      );
+    }
+
+    if (user.status === 'rejected') {
+      db.close();
+      return NextResponse.json(
+        { message: '계정이 거절되었습니다. 관리자에게 문의하세요.' },
+        { status: 403 }
+      );
+    }
+
+    db.close();
+
+    // JWT 토큰 생성 (userId, username, role, status 포함)
+    const token = await new SignJWT({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      status: user.status,
+    })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime('24h') // 24시간 후 만료
+      .setExpirationTime('24h')
       .sign(secret);
 
     // 응답 생성
@@ -47,12 +82,18 @@ export async function POST(request: NextRequest) {
       {
         message: '로그인 성공',
         token,
-        user: { username },
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          name: user.name,
+        },
       },
       { status: 200 }
     );
 
-    // 쿠키에 토큰 설정 (HttpOnly, Secure)
+    // 쿠키에 토큰 설정
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

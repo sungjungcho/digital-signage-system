@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { deviceId, url, autoplay, loop, mute, scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime } = body;
 
-    console.log('[YouTube API] 요청 받음:', { deviceId, url, autoplay, loop, mute });
 
     if (!deviceId || !url) {
       return NextResponse.json(
@@ -70,7 +69,6 @@ export async function POST(request: NextRequest) {
 
     // 유튜브 URL 파싱
     const youtubeInfo = extractYoutubeInfo(url);
-    console.log('[YouTube API] 파싱된 정보:', youtubeInfo);
 
     if (!youtubeInfo) {
       return NextResponse.json(
@@ -79,7 +77,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[YouTube API] DB 경로:', dbPath);
     const db = new Database(dbPath);
 
     // 현재 콘텐츠 개수 조회 (order 값 결정용)
@@ -132,7 +129,6 @@ export async function POST(request: NextRequest) {
     db.close();
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
-    console.log(`[API] 유튜브 콘텐츠 추가 완료, 디바이스 ${deviceId}에 업데이트 알림 전송`);
     if (broadcastContentUpdateToDevice) {
       setTimeout(() => {
         broadcastContentUpdateToDevice!(deviceId);

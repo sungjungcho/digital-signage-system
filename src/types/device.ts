@@ -1,9 +1,12 @@
 export type device = {
   id: string;
   name: string;
+  alias: string;
   location: string;
   status: 'online' | 'offline';
   lastConnected?: string;
+  user_id: string | null;  // 소유자 ID
+  pin_code: string;        // 디스플레이 접근 PIN 코드 (4자리)
   createdAt: string;
   updatedAt: string;
 };

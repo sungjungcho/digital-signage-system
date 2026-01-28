@@ -60,7 +60,6 @@ export async function POST(req: Request) {
     db.close();
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
-    console.log(`[API] 텍스트 콘텐츠 추가 완료, 디바이스 ${data.deviceId}에 업데이트 알림 전송`);
     if (broadcastContentUpdateToDevice) {
       setTimeout(() => {
         broadcastContentUpdateToDevice!(data.deviceId);
