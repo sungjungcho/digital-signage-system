@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import type { User } from '@/types/user';
+import { SERVER_START_TIME } from '@/lib/serverSession';
 
 const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 const secret = new TextEncoder().encode(SECRET_KEY);
@@ -65,12 +66,13 @@ export async function POST(request: NextRequest) {
 
     db.close();
 
-    // JWT 토큰 생성 (userId, username, role, status 포함)
+    // JWT 토큰 생성 (userId, username, role, status, serverStartTime 포함)
     const token = await new SignJWT({
       userId: user.id,
       username: user.username,
       role: user.role,
       status: user.status,
+      serverStartTime: SERVER_START_TIME,
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -93,12 +95,12 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // 쿠키에 토큰 설정
+    // 쿠키에 토큰 설정 (세션 쿠키 - 브라우저 닫으면 삭제됨)
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24시간
+      // maxAge 제거 - 세션 쿠키로 설정하여 브라우저 닫으면 자동 삭제
       path: '/',
     });
 

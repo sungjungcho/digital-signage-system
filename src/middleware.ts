@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { SERVER_START_TIME } from '@/lib/serverSession';
 
 // JWT 시크릿 키
 const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
@@ -12,6 +13,7 @@ interface JWTPayload {
   username: string;
   role: 'user' | 'superadmin';
   status: 'pending' | 'approved' | 'rejected';
+  serverStartTime?: number;
 }
 
 // JWT 토큰 검증
@@ -77,6 +79,17 @@ export async function middleware(request: NextRequest) {
       : NextResponse.redirect(new URL('/login', request.url));
 
     // 유효하지 않은 쿠키 삭제
+    response.cookies.delete('auth_token');
+    return response;
+  }
+
+  // 서버 재시작 후 발급된 토큰인지 확인
+  if (payload.serverStartTime !== SERVER_START_TIME) {
+    const response = pathname.startsWith('/api/')
+      ? NextResponse.json({ message: '세션이 만료되었습니다. 다시 로그인해주세요.' }, { status: 401 })
+      : NextResponse.redirect(new URL('/login', request.url));
+
+    // 이전 서버 세션의 쿠키 삭제
     response.cookies.delete('auth_token');
     return response;
   }
