@@ -279,7 +279,9 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
             style={{
               color: currentContent.fontColor || '#ffffff',
               backgroundColor: currentContent.backgroundColor || '#000000',
-              fontSize: currentContent.fontSize || '3rem',
+              fontSize: currentContent.fontSize
+                ? (isNaN(Number(currentContent.fontSize)) ? currentContent.fontSize : `${currentContent.fontSize}pt`)
+                : '36pt',
               padding: '2rem',
               width: '100%',
               height: '100vh',

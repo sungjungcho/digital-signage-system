@@ -83,8 +83,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 서버 재시작 후 발급된 토큰인지 확인
-  if (payload.serverStartTime !== SERVER_START_TIME) {
+  // 서버 재시작 후 발급된 토큰인지 확인 (SERVER_START_TIME이 0이 아닐 때만)
+  if (SERVER_START_TIME !== 0 && payload.serverStartTime !== SERVER_START_TIME) {
     const response = pathname.startsWith('/api/')
       ? NextResponse.json({ message: '세션이 만료되었습니다. 다시 로그인해주세요.' }, { status: 401 })
       : NextResponse.redirect(new URL('/login', request.url));

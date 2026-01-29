@@ -23,7 +23,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
   const [textContent, setTextContent] = useState({
     text: '',
     duration: 5000,
-    fontSize: '32',
+    fontSize: '24',
     fontColor: '#000000',
     backgroundColor: '#FFFFFF',
   });
@@ -50,7 +50,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
   const [currentMixedElement, setCurrentMixedElement] = useState<Partial<MixedElement>>({
     type: 'text',
     duration: 5000,
-    fontSize: '32',
+    fontSize: '24',
     fontColor: '#000000',
     backgroundColor: '#FFFFFF',
   });
@@ -67,7 +67,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
   const [currentLeftContent, setCurrentLeftContent] = useState<Partial<MixedElement>>({
     type: 'text',
     duration: 5000,
-    fontSize: '32',
+    fontSize: '24',
     fontColor: '#000000',
     backgroundColor: '#FFFFFF',
   });
@@ -140,7 +140,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
         setTextContent({
           text: '',
           duration: 5000,
-          fontSize: '32',
+          fontSize: '24',
           fontColor: '#000000',
           backgroundColor: '#FFFFFF',
         });
@@ -296,7 +296,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
         setTextContent({
           text: '',
           duration: 5000,
-          fontSize: '32',
+          fontSize: '24',
           fontColor: '#000000',
           backgroundColor: '#FFFFFF',
         });
@@ -585,7 +585,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               setTextContent({
                 text: '',
                 duration: 5000,
-                fontSize: '2rem',
+                fontSize: '24',
                 fontColor: '#ffffff',
                 backgroundColor: '#000000',
               });
@@ -640,7 +640,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   <div className="grid grid-cols-6 gap-3">
                     {/* 글자 크기 */}
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (pt)</label>
                       <input
                         type="number"
                         value={currentMixedElement.fontSize || '32'}
@@ -1055,7 +1055,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                         setCurrentLeftContent({
                           type: 'text',
                           duration: 5000,
-                          fontSize: '32',
+                          fontSize: '24',
                           fontColor: '#000000',
                           backgroundColor: '#FFFFFF',
                         });
@@ -1170,7 +1170,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   setCurrentMixedElement({
                     type: 'text',
                     duration: 5000,
-                    fontSize: '32',
+                    fontSize: '24',
                     fontColor: '#000000',
                     backgroundColor: '#FFFFFF',
                   });
@@ -1372,7 +1372,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   <div className="grid grid-cols-6 gap-3">
                     {/* 글자 크기 */}
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (px)</label>
+                      <label className="block text-base font-medium text-gray-700 mb-1">글자 크기 (pt)</label>
                       <input
                         type="number"
                         value={currentLeftContent.fontSize || '32'}
@@ -1577,7 +1577,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   setCurrentLeftContent({
                     type: 'text',
                     duration: 5000,
-                    fontSize: '2rem',
+                    fontSize: '24',
                     fontColor: '#ffffff',
                     backgroundColor: '#000000',
                   });
@@ -1596,7 +1596,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     setCurrentLeftContent({
                       type: 'text',
                       duration: 5000,
-                      fontSize: '2rem',
+                      fontSize: '24',
                       fontColor: '#ffffff',
                       backgroundColor: '#000000',
                     });
@@ -1647,7 +1647,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 setCurrentLeftContent({
                                   type: 'text',
                                   duration: 5000,
-                                  fontSize: '2rem',
+                                  fontSize: '24',
                                   fontColor: '#ffffff',
                                   backgroundColor: '#000000',
                                 });
@@ -1785,7 +1785,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                     setCurrentLeftContent({
                       type: 'text',
                       duration: 5000,
-                      fontSize: '2rem',
+                      fontSize: '24',
                       fontColor: '#ffffff',
                       backgroundColor: '#000000',
                     });
@@ -1820,7 +1820,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   setCurrentLeftContent({
                     type: 'text',
                     duration: 5000,
-                    fontSize: '2rem',
+                    fontSize: '24',
                     fontColor: '#ffffff',
                     backgroundColor: '#000000',
                   });
@@ -1852,7 +1852,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
               {/* 글자 크기 */}
               <div>
                 <label htmlFor="fontSize" className="block text-base font-medium text-gray-700 mb-1">
-                  글자 크기 (px)
+                  글자 크기 (pt)
                 </label>
                 <input
                   type="number"
@@ -1999,7 +1999,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   setTextContent({
                     text: '',
                     duration: 5000,
-                    fontSize: '2rem',
+                    fontSize: '24',
                     fontColor: '#ffffff',
                     backgroundColor: '#000000',
                   });
@@ -2532,7 +2532,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-base font-medium mb-1">글자 크기 (픽셀)</label>
+                                <label className="block text-base font-medium mb-1">글자 크기 (pt)</label>
                                 <input
                                   type="number"
                                   value={editingElementData.fontSize || '32'}

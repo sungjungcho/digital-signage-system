@@ -197,10 +197,10 @@ function renderElement(
 ) {
   switch (currentElement.type) {
     case 'text':
-      // fontSize가 숫자면 px 추가, 아니면 그대로 사용 (하위 호환성)
+      // fontSize가 숫자면 pt 추가 (Excel 스타일), 아니면 그대로 사용 (하위 호환성)
       const fontSize = currentElement.fontSize
-        ? (isNaN(Number(currentElement.fontSize)) ? currentElement.fontSize : `${currentElement.fontSize}px`)
-        : '32px';
+        ? (isNaN(Number(currentElement.fontSize)) ? currentElement.fontSize : `${currentElement.fontSize}pt`)
+        : '24pt';
       return (
         <div
           key={`text-${currentIndex}`}
@@ -374,10 +374,10 @@ function SplitLayoutContent({ leftContents, showNotices = true }: { leftContents
 function renderLeftContent(content: MixedElement) {
   switch (content.type) {
     case 'text':
-      // fontSize가 숫자면 px 추가, 아니면 그대로 사용 (하위 호환성)
+      // fontSize가 숫자면 pt 추가 (Excel 스타일), 아니면 그대로 사용 (하위 호환성)
       const fontSize = content.fontSize
-        ? (isNaN(Number(content.fontSize)) ? content.fontSize : `${content.fontSize}px`)
-        : '32px';
+        ? (isNaN(Number(content.fontSize)) ? content.fontSize : `${content.fontSize}pt`)
+        : '24pt';
       return (
         <div
           className="w-full h-full flex items-center justify-center"
