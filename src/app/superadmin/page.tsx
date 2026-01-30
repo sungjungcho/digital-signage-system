@@ -19,9 +19,25 @@ interface User {
   role: 'user' | 'superadmin';
   status: 'pending' | 'approved' | 'rejected';
   name: string | null;
+  max_devices: number;
   created_at: string;
   updated_at: string;
   deviceCount: number;
+}
+
+interface DeviceRequest {
+  id: string;
+  user_id: string;
+  username: string;
+  user_name: string | null;
+  requested_count: number;
+  current_max: number;
+  user_max_devices: number;
+  current_device_count: number;
+  reason: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_count: number | null;
+  created_at: string;
 }
 
 export default function SuperAdminPage() {
@@ -33,6 +49,8 @@ export default function SuperAdminPage() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [userDevices, setUserDevices] = useState<Record<string, Device[]>>({});
   const [deviceLoading, setDeviceLoading] = useState<string | null>(null);
+  const [deviceRequests, setDeviceRequests] = useState<DeviceRequest[]>([]);
+  const [editingMaxDevices, setEditingMaxDevices] = useState<{ userId: string; value: number } | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -78,8 +96,65 @@ export default function SuperAdminPage() {
     }
   };
 
+  const fetchDeviceRequests = async () => {
+    try {
+      const response = await fetch('/api/superadmin/device-requests');
+      if (response.ok) {
+        const data = await response.json();
+        setDeviceRequests(data);
+      }
+    } catch (error) {
+      console.error('디바이스 요청 목록 조회 오류:', error);
+    }
+  };
+
+  const handleDeviceRequestAction = async (requestId: string, action: 'approve' | 'reject', approvedCount?: number) => {
+    setActionLoading(requestId);
+    try {
+      const response = await fetch('/api/superadmin/device-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action, approvedCount }),
+      });
+      if (response.ok) {
+        fetchDeviceRequests();
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        alert(data.error || '처리 실패');
+      }
+    } catch (error) {
+      alert('처리 중 오류 발생');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateMaxDevices = async (userId: string, maxDevices: number) => {
+    setActionLoading(userId);
+    try {
+      const response = await fetch(`/api/superadmin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_devices: maxDevices }),
+      });
+      if (response.ok) {
+        fetchUsers();
+        setEditingMaxDevices(null);
+      } else {
+        const data = await response.json();
+        alert(data.error || '디바이스 한도 변경 실패');
+      }
+    } catch (error) {
+      alert('디바이스 한도 변경 중 오류 발생');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchDeviceRequests();
   }, []);
 
   const handleApprove = async (userId: string) => {
@@ -261,6 +336,75 @@ export default function SuperAdminPage() {
           </div>
         )}
 
+        {/* 디바이스 추가 요청 */}
+        {deviceRequests.filter(r => r.status === 'pending').length > 0 && (
+          <div className="mb-6 bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-md">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">디바이스 추가 요청</h2>
+              <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                {deviceRequests.filter(r => r.status === 'pending').length}건 대기
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {deviceRequests.filter(r => r.status === 'pending').map((request) => (
+                <div key={request.id} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800">
+                      {request.user_name || request.username}
+                      <span className="text-sm font-normal text-gray-500 ml-2">(@{request.username})</span>
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      현재 {request.current_device_count}개 사용 중 / 한도 {request.user_max_devices}개
+                      <span className="text-orange-600 font-medium ml-2">
+                        → {request.requested_count}개 추가 요청
+                      </span>
+                    </p>
+                    {request.reason && (
+                      <p className="text-sm text-gray-500 mt-1">사유: {request.reason}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      요청일: {new Date(request.created_at).toLocaleString('ko-KR')}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4">
+                    <input
+                      type="number"
+                      min={request.user_max_devices}
+                      defaultValue={request.user_max_devices + request.requested_count}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
+                      id={`approve-count-${request.id}`}
+                    />
+                    <span className="text-sm text-gray-500">개로</span>
+                    <button
+                      onClick={() => {
+                        const input = document.getElementById(`approve-count-${request.id}`) as HTMLInputElement;
+                        handleDeviceRequestAction(request.id, 'approve', parseInt(input.value));
+                      }}
+                      disabled={actionLoading === request.id}
+                      className="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50"
+                    >
+                      승인
+                    </button>
+                    <button
+                      onClick={() => handleDeviceRequestAction(request.id, 'reject')}
+                      disabled={actionLoading === request.id}
+                      className="px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 필터 */}
         <div className="mb-6 flex space-x-2">
           {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
@@ -290,7 +434,7 @@ export default function SuperAdminPage() {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">사용자</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">상태</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">역할</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">디바이스</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">디바이스 (현재/한도)</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">가입일</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-600">작업</th>
               </tr>
@@ -322,8 +466,45 @@ export default function SuperAdminPage() {
                     </td>
                     <td className="px-6 py-4">{getStatusBadge(user.status)}</td>
                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-gray-600">{user.deviceCount}개</span>
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      {editingMaxDevices?.userId === user.id ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-600">{user.deviceCount} /</span>
+                          <input
+                            type="number"
+                            min={user.deviceCount}
+                            value={editingMaxDevices.value}
+                            onChange={(e) => setEditingMaxDevices({ userId: user.id, value: parseInt(e.target.value) || 0 })}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleUpdateMaxDevices(user.id, editingMaxDevices.value)}
+                            disabled={actionLoading === user.id}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setEditingMaxDevices(null)}
+                            className="p-1 text-gray-400 hover:bg-gray-50 rounded"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setEditingMaxDevices({ userId: user.id, value: user.max_devices || 3 })}
+                          className="text-gray-600 hover:text-purple-600 hover:underline"
+                          title="클릭하여 한도 수정"
+                        >
+                          {user.deviceCount} / {user.max_devices || 3}개
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-500">

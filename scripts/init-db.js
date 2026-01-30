@@ -60,6 +60,14 @@ db.exec(`
 `);
 console.log('✅ users 테이블 생성/확인 완료');
 
+// max_devices 컬럼 추가 (일반 사용자 디바이스 등록 제한)
+if (!columnExists('users', 'max_devices')) {
+  db.exec(`ALTER TABLE users ADD COLUMN max_devices INTEGER DEFAULT 3`);
+  // superadmin은 무제한 (999)
+  db.exec(`UPDATE users SET max_devices = 999 WHERE role = 'superadmin'`);
+  console.log('✅ users 테이블에 max_devices 컬럼 추가됨 (기본값: 3)');
+}
+
 // ============================
 // 2. sessions 테이블 생성
 // ============================
@@ -199,6 +207,26 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_notice_category ON notice(category);
   CREATE INDEX IF NOT EXISTS idx_notice_favorite ON notice(favorite);
+
+  -- 디바이스 추가 요청 테이블
+  CREATE TABLE IF NOT EXISTS device_requests (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    requested_count INTEGER NOT NULL,
+    current_max INTEGER NOT NULL,
+    reason TEXT,
+    status TEXT DEFAULT 'pending',
+    approved_count INTEGER,
+    approved_by TEXT,
+    approved_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_device_requests_user_id ON device_requests(user_id);
+  CREATE INDEX IF NOT EXISTS idx_device_requests_status ON device_requests(status);
 `);
 
 // ============================

@@ -28,6 +28,8 @@ export async function GET() {
 
     // 슈퍼관리자는 모든 디바이스, 일반 사용자는 본인 디바이스만
     let devices;
+    let deviceLimit = null;
+
     if (userRole === 'superadmin') {
       devices = db.prepare(`
         SELECT d.*, u.username as owner_username
@@ -39,6 +41,13 @@ export async function GET() {
       devices = db.prepare(`
         SELECT * FROM device WHERE user_id = ? ORDER BY createdAt ASC
       `).all(userId);
+
+      // 일반 사용자는 디바이스 제한 정보도 함께 반환
+      const user = db.prepare('SELECT max_devices FROM users WHERE id = ?').get(userId) as { max_devices: number } | undefined;
+      deviceLimit = {
+        current: devices.length,
+        max: user?.max_devices ?? 3
+      };
     }
 
     // 각 디바이스의 콘텐츠도 함께 조회
@@ -55,6 +64,14 @@ export async function GET() {
 
     db.close();
 
+    // 일반 사용자는 디바이스 제한 정보도 함께 반환
+    if (deviceLimit) {
+      return NextResponse.json({
+        devices: devicesWithContents,
+        deviceLimit
+      });
+    }
+
     return NextResponse.json(devicesWithContents);
   } catch (error) {
     console.error('Error fetching devices:', error);
@@ -69,6 +86,7 @@ export async function POST(req: Request) {
   try {
     const headersList = await headers();
     const userId = headersList.get('x-user-id');
+    const userRole = headersList.get('x-user-role');
 
     if (!userId) {
       return NextResponse.json(
@@ -88,6 +106,27 @@ export async function POST(req: Request) {
     }
 
     const db = new Database(dbPath);
+
+    // 디바이스 등록 제한 체크 (슈퍼관리자는 제외)
+    if (userRole !== 'superadmin') {
+      const user = db.prepare('SELECT max_devices FROM users WHERE id = ?').get(userId) as { max_devices: number } | undefined;
+      const deviceCount = db.prepare('SELECT COUNT(*) as count FROM device WHERE user_id = ?').get(userId) as { count: number };
+
+      const maxDevices = user?.max_devices ?? 3;
+
+      if (deviceCount.count >= maxDevices) {
+        db.close();
+        return NextResponse.json(
+          {
+            error: '디바이스 등록 한도에 도달했습니다.',
+            code: 'DEVICE_LIMIT_REACHED',
+            currentCount: deviceCount.count,
+            maxDevices: maxDevices
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const deviceId = randomUUID();
     const now = new Date().toISOString();

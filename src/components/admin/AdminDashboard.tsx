@@ -15,24 +15,68 @@ type AlertForm = {
   targetDeviceIds: string[];
 };
 
+interface DeviceLimit {
+  current: number;
+  max: number;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [selectedDevice, setSelectedDevice] = useState<device | null>(null);
   const [devices, setDevices] = useState<device[]>([]);
+  const [deviceLimit, setDeviceLimit] = useState<DeviceLimit | null>(null);
   const [alertForm, setAlertForm] = useState<AlertForm>({ message: '', targetDeviceIds: [] });
   const [alertDuration, setAlertDuration] = useState<number>(5000);
   const [sending, setSending] = useState(false);
   const [alertResult, setAlertResult] = useState<string | null>(null);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestCount, setRequestCount] = useState(1);
+  const [requestReason, setRequestReason] = useState('');
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [requestResult, setRequestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const fetchDevices = async () => {
     try {
       const response = await fetch('/api/devices');
       const data = await response.json();
-      if (Array.isArray(data)) {
+      // 일반 사용자의 경우 { devices: [], deviceLimit: {} } 형태로 반환
+      if (data.devices && Array.isArray(data.devices)) {
+        setDevices(data.devices);
+        setDeviceLimit(data.deviceLimit || null);
+      } else if (Array.isArray(data)) {
+        // 슈퍼관리자의 경우 배열로 반환
         setDevices(data);
+        setDeviceLimit(null);
       }
     } catch (error) {
       console.error('디바이스 목록을 가져오는 중 오류 발생:', error);
+    }
+  };
+
+  const handleRequestMoreDevices = async () => {
+    setRequestLoading(true);
+    setRequestResult(null);
+    try {
+      const response = await fetch('/api/device-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestedCount: requestCount,
+          reason: requestReason,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setRequestResult({ success: true, message: '요청이 접수되었습니다. 관리자 승인을 기다려주세요.' });
+        setRequestCount(1);
+        setRequestReason('');
+      } else {
+        setRequestResult({ success: false, message: data.error || '요청 실패' });
+      }
+    } catch (error) {
+      setRequestResult({ success: false, message: '요청 중 오류가 발생했습니다.' });
+    } finally {
+      setRequestLoading(false);
     }
   };
 
@@ -101,7 +145,11 @@ export default function AdminDashboard() {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800">디바이스 관리</h2>
               </div>
-              <DeviceForm onDeviceAdded={handleDeviceAdded} />
+              <DeviceForm
+                onDeviceAdded={handleDeviceAdded}
+                deviceLimit={deviceLimit}
+                onRequestMoreDevices={() => setShowRequestModal(true)}
+              />
               <div className="mt-6">
                 <DeviceList
                   devices={devices}
@@ -340,6 +388,72 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* 디바이스 추가 요청 모달 */}
+      {showRequestModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">디바이스 추가 요청</h3>
+
+            {requestResult ? (
+              <div className={`p-4 rounded-lg mb-4 ${requestResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {requestResult.message}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    추가 요청 디바이스 수
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={requestCount}
+                    onChange={(e) => setRequestCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    요청 사유 (선택)
+                  </label>
+                  <textarea
+                    value={requestReason}
+                    onChange={(e) => setRequestReason(e.target.value)}
+                    rows={3}
+                    placeholder="추가 디바이스가 필요한 이유를 입력해주세요"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRequestModal(false);
+                  setRequestResult(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                닫기
+              </button>
+              {!requestResult && (
+                <button
+                  type="button"
+                  onClick={handleRequestMoreDevices}
+                  disabled={requestLoading}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition font-medium disabled:opacity-50"
+                >
+                  {requestLoading ? '요청 중...' : '요청하기'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

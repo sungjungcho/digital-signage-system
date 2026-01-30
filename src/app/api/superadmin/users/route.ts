@@ -26,7 +26,7 @@ export async function GET() {
 
     // 비밀번호 해시 제외하고 조회
     const users = db.prepare(`
-      SELECT id, username, email, role, status, name, created_at, updated_at
+      SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users
       ORDER BY created_at DESC
     `).all();

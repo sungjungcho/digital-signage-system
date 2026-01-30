@@ -29,7 +29,7 @@ export async function GET(
     const db = new Database(dbPath);
 
     const user = db.prepare(`
-      SELECT id, username, email, role, status, name, created_at, updated_at
+      SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users WHERE id = ?
     `).get(userId);
 
@@ -114,23 +114,33 @@ export async function PATCH(
       );
     }
 
+    // max_devices 유효성 검사
+    if (data.max_devices !== undefined && (typeof data.max_devices !== 'number' || data.max_devices < 0)) {
+      db.close();
+      return NextResponse.json(
+        { error: '유효하지 않은 디바이스 한도 값입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 업데이트
     const now = new Date().toISOString();
     const stmt = db.prepare(`
       UPDATE users
-      SET status = ?, role = ?, updated_at = ?
+      SET status = ?, role = ?, max_devices = ?, updated_at = ?
       WHERE id = ?
     `);
 
     stmt.run(
       data.status || user.status,
       data.role || user.role,
+      data.max_devices !== undefined ? data.max_devices : user.max_devices,
       now,
       userId
     );
 
     const updatedUser = db.prepare(`
-      SELECT id, username, email, role, status, name, created_at, updated_at
+      SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users WHERE id = ?
     `).get(userId);
 
