@@ -28,7 +28,7 @@ export async function GET() {
     const users = db.prepare(`
       SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users
-      ORDER BY created_at DESC
+      ORDER BY CASE WHEN role = 'superadmin' THEN 0 ELSE 1 END, created_at DESC
     `).all();
 
     // 각 사용자의 디바이스 수 조회

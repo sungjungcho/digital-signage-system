@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Device {
@@ -10,6 +10,7 @@ interface Device {
   location: string;
   pin_code: string;
   status: string;
+  user_id: string;
 }
 
 interface User {
@@ -25,21 +26,6 @@ interface User {
   deviceCount: number;
 }
 
-interface DeviceRequest {
-  id: string;
-  user_id: string;
-  username: string;
-  user_name: string | null;
-  requested_count: number;
-  current_max: number;
-  user_max_devices: number;
-  current_device_count: number;
-  reason: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  approved_count: number | null;
-  created_at: string;
-}
-
 export default function SuperAdminPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
@@ -49,8 +35,24 @@ export default function SuperAdminPage() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [userDevices, setUserDevices] = useState<Record<string, Device[]>>({});
   const [deviceLoading, setDeviceLoading] = useState<string | null>(null);
-  const [deviceRequests, setDeviceRequests] = useState<DeviceRequest[]>([]);
-  const [editingMaxDevices, setEditingMaxDevices] = useState<{ userId: string; value: number } | null>(null);
+
+  // 디바이스 생성 폼
+  const [showDeviceForm, setShowDeviceForm] = useState(false);
+  const [deviceForm, setDeviceForm] = useState({
+    name: '',
+    alias: '',
+    location: '',
+    pin_code: '',
+    user_id: '',
+  });
+  const [deviceFormError, setDeviceFormError] = useState('');
+  const [deviceFormLoading, setDeviceFormLoading] = useState(false);
+
+  // 디바이스 수정
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [editDeviceForm, setEditDeviceForm] = useState({ name: '', alias: '', location: '', pin_code: '', user_id: '' });
+
+  const approvedUsers = users.filter(u => u.status === 'approved');
 
   const fetchUsers = async () => {
     try {
@@ -71,8 +73,6 @@ export default function SuperAdminPage() {
   };
 
   const fetchUserDevices = async (userId: string) => {
-    if (userDevices[userId]) return; // 이미 로드됨
-
     setDeviceLoading(userId);
     try {
       const response = await fetch(`/api/superadmin/users/${userId}`);
@@ -96,67 +96,149 @@ export default function SuperAdminPage() {
     }
   };
 
-  const fetchDeviceRequests = async () => {
-    try {
-      const response = await fetch('/api/superadmin/device-requests');
-      if (response.ok) {
-        const data = await response.json();
-        setDeviceRequests(data);
-      }
-    } catch (error) {
-      console.error('디바이스 요청 목록 조회 오류:', error);
-    }
-  };
-
-  const handleDeviceRequestAction = async (requestId: string, action: 'approve' | 'reject', approvedCount?: number) => {
-    setActionLoading(requestId);
-    try {
-      const response = await fetch('/api/superadmin/device-requests', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, action, approvedCount }),
-      });
-      if (response.ok) {
-        fetchDeviceRequests();
-        fetchUsers();
-      } else {
-        const data = await response.json();
-        alert(data.error || '처리 실패');
-      }
-    } catch (error) {
-      alert('처리 중 오류 발생');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleUpdateMaxDevices = async (userId: string, maxDevices: number) => {
-    setActionLoading(userId);
-    try {
-      const response = await fetch(`/api/superadmin/users/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_devices: maxDevices }),
-      });
-      if (response.ok) {
-        fetchUsers();
-        setEditingMaxDevices(null);
-      } else {
-        const data = await response.json();
-        alert(data.error || '디바이스 한도 변경 실패');
-      }
-    } catch (error) {
-      alert('디바이스 한도 변경 중 오류 발생');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   useEffect(() => {
     fetchUsers();
-    fetchDeviceRequests();
   }, []);
 
+  // 디바이스 생성
+  const generatePin = () => {
+    const pin = String(Math.floor(1000 + Math.random() * 9000));
+    setDeviceForm(prev => ({ ...prev, pin_code: pin }));
+  };
+
+  const handleCreateDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeviceFormError('');
+
+    if (!deviceForm.user_id) {
+      setDeviceFormError('디바이스를 할당할 사용자를 선택해주세요.');
+      return;
+    }
+    if (!deviceForm.name.trim()) {
+      setDeviceFormError('디바이스 이름을 입력해주세요.');
+      return;
+    }
+    if (!deviceForm.location.trim()) {
+      setDeviceFormError('설치 위치를 입력해주세요.');
+      return;
+    }
+    if (deviceForm.alias && !/^[a-z0-9\-]+$/.test(deviceForm.alias)) {
+      setDeviceFormError('별칭은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.');
+      return;
+    }
+
+    setDeviceFormLoading(true);
+    try {
+      const response = await fetch('/api/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...deviceForm,
+          auto_pin: !deviceForm.pin_code,
+        }),
+      });
+
+      if (response.ok) {
+        setDeviceForm({ name: '', alias: '', location: '', pin_code: '', user_id: '' });
+        setShowDeviceForm(false);
+        fetchUsers();
+        // 해당 사용자의 디바이스 목록 새로고침
+        if (deviceForm.user_id) {
+          setUserDevices(prev => {
+            const updated = { ...prev };
+            delete updated[deviceForm.user_id];
+            return updated;
+          });
+          if (expandedUserId === deviceForm.user_id) {
+            await fetchUserDevices(deviceForm.user_id);
+          }
+        }
+      } else {
+        const data = await response.json();
+        setDeviceFormError(data.error || '디바이스 등록 실패');
+      }
+    } catch {
+      setDeviceFormError('디바이스 등록 중 오류 발생');
+    } finally {
+      setDeviceFormLoading(false);
+    }
+  };
+
+  // 디바이스 수정
+  const handleStartEditDevice = (device: Device) => {
+    setEditingDevice(device);
+    setEditDeviceForm({
+      name: device.name,
+      alias: device.alias,
+      location: device.location,
+      pin_code: device.pin_code,
+      user_id: device.user_id,
+    });
+  };
+
+  const handleUpdateDevice = async () => {
+    if (!editingDevice) return;
+    setActionLoading(editingDevice.id);
+    try {
+      const response = await fetch(`/api/devices/${editingDevice.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editDeviceForm),
+      });
+      if (response.ok) {
+        setEditingDevice(null);
+        fetchUsers();
+        // 관련 사용자들의 디바이스 목록 새로고침
+        const affectedUserIds = new Set([editingDevice.user_id, editDeviceForm.user_id]);
+        affectedUserIds.forEach(uid => {
+          setUserDevices(prev => {
+            const updated = { ...prev };
+            delete updated[uid];
+            return updated;
+          });
+        });
+        if (expandedUserId && affectedUserIds.has(expandedUserId)) {
+          await fetchUserDevices(expandedUserId);
+        }
+      } else {
+        const data = await response.json();
+        alert(data.error || '디바이스 수정 실패');
+      }
+    } catch {
+      alert('디바이스 수정 중 오류 발생');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // 디바이스 삭제
+  const handleDeleteDevice = async (device: Device) => {
+    if (!confirm(`정말로 '${device.name}' 디바이스를 삭제하시겠습니까?\n모든 콘텐츠도 함께 삭제됩니다.`)) return;
+    setActionLoading(device.id);
+    try {
+      const response = await fetch(`/api/devices/${device.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchUsers();
+        setUserDevices(prev => {
+          const updated = { ...prev };
+          delete updated[device.user_id];
+          return updated;
+        });
+        if (expandedUserId === device.user_id) {
+          await fetchUserDevices(device.user_id);
+        }
+      } else {
+        const data = await response.json();
+        alert(data.error || '디바이스 삭제 실패');
+      }
+    } catch {
+      alert('디바이스 삭제 중 오류 발생');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // 사용자 관리
   const handleApprove = async (userId: string) => {
     setActionLoading(userId);
     try {
@@ -165,17 +247,13 @@ export default function SuperAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'approved' }),
       });
-      if (response.ok) {
-        fetchUsers();
-      } else {
+      if (response.ok) fetchUsers();
+      else {
         const data = await response.json();
         alert(data.error || '승인 처리 실패');
       }
-    } catch (error) {
-      alert('승인 처리 중 오류 발생');
-    } finally {
-      setActionLoading(null);
-    }
+    } catch { alert('승인 처리 중 오류 발생'); }
+    finally { setActionLoading(null); }
   };
 
   const handleReject = async (userId: string) => {
@@ -187,26 +265,20 @@ export default function SuperAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'rejected' }),
       });
-      if (response.ok) {
-        fetchUsers();
-      } else {
+      if (response.ok) fetchUsers();
+      else {
         const data = await response.json();
         alert(data.error || '거부 처리 실패');
       }
-    } catch (error) {
-      alert('거부 처리 중 오류 발생');
-    } finally {
-      setActionLoading(null);
-    }
+    } catch { alert('거부 처리 중 오류 발생'); }
+    finally { setActionLoading(null); }
   };
 
   const handleDelete = async (userId: string, username: string) => {
     if (!confirm(`정말로 '${username}' 사용자를 삭제하시겠습니까?\n사용자의 디바이스는 슈퍼관리자에게 이전됩니다.`)) return;
     setActionLoading(userId);
     try {
-      const response = await fetch(`/api/superadmin/users/${userId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(`/api/superadmin/users/${userId}`, { method: 'DELETE' });
       if (response.ok) {
         fetchUsers();
         setExpandedUserId(null);
@@ -214,18 +286,14 @@ export default function SuperAdminPage() {
         const data = await response.json();
         alert(data.error || '삭제 실패');
       }
-    } catch (error) {
-      alert('삭제 중 오류 발생');
-    } finally {
-      setActionLoading(null);
-    }
+    } catch { alert('삭제 중 오류 발생'); }
+    finally { setActionLoading(null); }
   };
 
   const handleToggleRole = async (userId: string, currentRole: string) => {
     const newRole = currentRole === 'superadmin' ? 'user' : 'superadmin';
     const action = newRole === 'superadmin' ? '슈퍼관리자로 승격' : '일반 사용자로 변경';
     if (!confirm(`이 사용자를 ${action}하시겠습니까?`)) return;
-
     setActionLoading(userId);
     try {
       const response = await fetch(`/api/superadmin/users/${userId}`, {
@@ -233,17 +301,13 @@ export default function SuperAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
       });
-      if (response.ok) {
-        fetchUsers();
-      } else {
+      if (response.ok) fetchUsers();
+      else {
         const data = await response.json();
         alert(data.error || '역할 변경 실패');
       }
-    } catch (error) {
-      alert('역할 변경 중 오류 발생');
-    } finally {
-      setActionLoading(null);
-    }
+    } catch { alert('역할 변경 중 오류 발생'); }
+    finally { setActionLoading(null); }
   };
 
   const filteredUsers = users.filter(user => {
@@ -298,10 +362,16 @@ export default function SuperAdminPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">슈퍼관리자</h1>
-                <p className="text-sm text-purple-600 font-medium">사용자 계정 관리</p>
+                <p className="text-sm text-purple-600 font-medium">사용자 및 디바이스 관리</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowDeviceForm(!showDeviceForm)}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition font-medium shadow-md"
+              >
+                + 디바이스 등록
+              </button>
               <a
                 href="/admin"
                 className="px-4 py-2 bg-teal-500/20 text-teal-700 rounded-lg hover:bg-teal-500/30 transition font-medium"
@@ -319,8 +389,116 @@ export default function SuperAdminPage() {
         </div>
       </header>
 
-      {/* 메인 */}
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* 디바이스 등록 폼 */}
+        {showDeviceForm && (
+          <div className="mb-6 bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-10 w-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">새 디바이스 등록</h2>
+            </div>
+
+            <form onSubmit={handleCreateDevice} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">할당 사용자 *</label>
+                <select
+                  value={deviceForm.user_id}
+                  onChange={(e) => setDeviceForm(prev => ({ ...prev, user_id: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">사용자를 선택하세요</option>
+                  {approvedUsers.map(user => (
+                    <option key={user.id} value={user.id}>
+                      {user.name || user.username} (@{user.username}) - 디바이스 {user.deviceCount}개
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">디바이스 이름 *</label>
+                <input
+                  type="text"
+                  value={deviceForm.name}
+                  onChange={(e) => setDeviceForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="예: 로비 디스플레이"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">설치 위치 *</label>
+                <input
+                  type="text"
+                  value={deviceForm.location}
+                  onChange={(e) => setDeviceForm(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="예: 1층 로비"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">별칭 (URL에 사용, 미입력 시 자동생성)</label>
+                <input
+                  type="text"
+                  value={deviceForm.alias}
+                  onChange={(e) => {
+                    const v = e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+                    setDeviceForm(prev => ({ ...prev, alias: v }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="예: lobby-display"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">PIN 코드 (4자리)</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={deviceForm.pin_code}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setDeviceForm(prev => ({ ...prev, pin_code: v }));
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-center tracking-widest"
+                    placeholder="미입력 시 자동생성"
+                    maxLength={4}
+                  />
+                  <button
+                    type="button"
+                    onClick={generatePin}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium whitespace-nowrap"
+                  >
+                    자동생성
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-end space-x-2">
+                <button
+                  type="submit"
+                  disabled={deviceFormLoading}
+                  className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition font-medium disabled:opacity-50"
+                >
+                  {deviceFormLoading ? '등록 중...' : '디바이스 등록'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowDeviceForm(false); setDeviceFormError(''); }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+                >
+                  취소
+                </button>
+              </div>
+              {deviceFormError && (
+                <div className="md:col-span-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                  {deviceFormError}
+                </div>
+              )}
+            </form>
+          </div>
+        )}
+
         {/* 승인 대기 알림 */}
         {pendingCount > 0 && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center space-x-3">
@@ -332,75 +510,6 @@ export default function SuperAdminPage() {
             <div>
               <p className="font-semibold text-yellow-800">승인 대기 중인 사용자가 {pendingCount}명 있습니다.</p>
               <p className="text-sm text-yellow-700">사용자를 승인하면 시스템에 로그인할 수 있습니다.</p>
-            </div>
-          </div>
-        )}
-
-        {/* 디바이스 추가 요청 */}
-        {deviceRequests.filter(r => r.status === 'pending').length > 0 && (
-          <div className="mb-6 bg-white rounded-2xl shadow-xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-md">
-                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">디바이스 추가 요청</h2>
-              <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
-                {deviceRequests.filter(r => r.status === 'pending').length}건 대기
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {deviceRequests.filter(r => r.status === 'pending').map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-xl">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-800">
-                      {request.user_name || request.username}
-                      <span className="text-sm font-normal text-gray-500 ml-2">(@{request.username})</span>
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      현재 {request.current_device_count}개 사용 중 / 한도 {request.user_max_devices}개
-                      <span className="text-orange-600 font-medium ml-2">
-                        → {request.requested_count}개 추가 요청
-                      </span>
-                    </p>
-                    {request.reason && (
-                      <p className="text-sm text-gray-500 mt-1">사유: {request.reason}</p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      요청일: {new Date(request.created_at).toLocaleString('ko-KR')}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-4">
-                    <input
-                      type="number"
-                      min={request.user_max_devices}
-                      defaultValue={request.user_max_devices + request.requested_count}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                      id={`approve-count-${request.id}`}
-                    />
-                    <span className="text-sm text-gray-500">개로</span>
-                    <button
-                      onClick={() => {
-                        const input = document.getElementById(`approve-count-${request.id}`) as HTMLInputElement;
-                        handleDeviceRequestAction(request.id, 'approve', parseInt(input.value));
-                      }}
-                      disabled={actionLoading === request.id}
-                      className="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50"
-                    >
-                      승인
-                    </button>
-                    <button
-                      onClick={() => handleDeviceRequestAction(request.id, 'reject')}
-                      disabled={actionLoading === request.id}
-                      className="px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50"
-                    >
-                      거절
-                    </button>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         )}
@@ -434,16 +543,15 @@ export default function SuperAdminPage() {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">사용자</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">상태</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">역할</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">디바이스 (현재/한도)</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">디바이스</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">가입일</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-600">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredUsers.map((user) => (
-                <>
+                <React.Fragment key={user.id}>
                   <tr
-                    key={user.id}
                     className={`hover:bg-gray-50 cursor-pointer ${expandedUserId === user.id ? 'bg-purple-50' : ''}`}
                     onClick={() => handleToggleExpand(user.id)}
                   >
@@ -466,45 +574,8 @@ export default function SuperAdminPage() {
                     </td>
                     <td className="px-6 py-4">{getStatusBadge(user.status)}</td>
                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
-                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                      {editingMaxDevices?.userId === user.id ? (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gray-600">{user.deviceCount} /</span>
-                          <input
-                            type="number"
-                            min={user.deviceCount}
-                            value={editingMaxDevices.value}
-                            onChange={(e) => setEditingMaxDevices({ userId: user.id, value: parseInt(e.target.value) || 0 })}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleUpdateMaxDevices(user.id, editingMaxDevices.value)}
-                            disabled={actionLoading === user.id}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => setEditingMaxDevices(null)}
-                            className="p-1 text-gray-400 hover:bg-gray-50 rounded"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setEditingMaxDevices({ userId: user.id, value: user.max_devices || 3 })}
-                          className="text-gray-600 hover:text-purple-600 hover:underline"
-                          title="클릭하여 한도 수정"
-                        >
-                          {user.deviceCount} / {user.max_devices || 3}개
-                        </button>
-                      )}
+                    <td className="px-6 py-4">
+                      <span className="text-gray-600">{user.deviceCount}개</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-500">
@@ -557,13 +628,13 @@ export default function SuperAdminPage() {
                       </button>
                     </td>
                   </tr>
-                  {/* 디바이스 트리 */}
+                  {/* 디바이스 목록 (확장) */}
                   {expandedUserId === user.id && (
-                    <tr key={`${user.id}-devices`}>
+                    <tr>
                       <td colSpan={7} className="px-6 py-4 bg-gray-50">
                         <div className="ml-8 border-l-2 border-purple-200 pl-4">
                           <p className="text-sm font-semibold text-purple-700 mb-3">
-                            등록된 디바이스 목록
+                            할당된 디바이스 목록
                           </p>
                           {deviceLoading === user.id ? (
                             <div className="flex items-center space-x-2 text-gray-500">
@@ -580,38 +651,119 @@ export default function SuperAdminPage() {
                                   key={device.id}
                                   className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-purple-300 transition"
                                 >
-                                  <div className="flex-shrink-0">
-                                    <svg className="h-8 w-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-gray-800">{device.name}</p>
-                                    <p className="text-sm text-gray-500">
-                                      별칭: <span className="font-mono text-purple-600">/{device.alias}</span>
-                                    </p>
-                                    <p className="text-xs text-gray-400">
-                                      위치: {device.location} | PIN: {device.pin_code}
-                                    </p>
-                                  </div>
-                                  <div className={`px-2 py-1 rounded text-xs font-medium ${
-                                    device.status === 'online'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                    {device.status === 'online' ? '온라인' : '오프라인'}
-                                  </div>
+                                  {editingDevice?.id === device.id ? (
+                                    /* 수정 모드 */
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                                      <input
+                                        value={editDeviceForm.name}
+                                        onChange={(e) => setEditDeviceForm(prev => ({ ...prev, name: e.target.value }))}
+                                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                        placeholder="이름"
+                                      />
+                                      <input
+                                        value={editDeviceForm.alias}
+                                        onChange={(e) => {
+                                          const v = e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+                                          setEditDeviceForm(prev => ({ ...prev, alias: v }));
+                                        }}
+                                        className="px-2 py-1 border border-gray-300 rounded text-sm font-mono"
+                                        placeholder="별칭"
+                                      />
+                                      <input
+                                        value={editDeviceForm.location}
+                                        onChange={(e) => setEditDeviceForm(prev => ({ ...prev, location: e.target.value }))}
+                                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                        placeholder="위치"
+                                      />
+                                      <input
+                                        value={editDeviceForm.pin_code}
+                                        onChange={(e) => {
+                                          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                          setEditDeviceForm(prev => ({ ...prev, pin_code: v }));
+                                        }}
+                                        className="px-2 py-1 border border-gray-300 rounded text-sm font-mono text-center"
+                                        placeholder="PIN"
+                                        maxLength={4}
+                                      />
+                                      <select
+                                        value={editDeviceForm.user_id}
+                                        onChange={(e) => setEditDeviceForm(prev => ({ ...prev, user_id: e.target.value }))}
+                                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                      >
+                                        {approvedUsers.map(u => (
+                                          <option key={u.id} value={u.id}>
+                                            {u.name || u.username}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <div className="flex space-x-1">
+                                        <button
+                                          onClick={handleUpdateDevice}
+                                          disabled={actionLoading === device.id}
+                                          className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50"
+                                        >
+                                          저장
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingDevice(null)}
+                                          className="px-2 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+                                        >
+                                          취소
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    /* 표시 모드 */
+                                    <>
+                                      <div className="flex-shrink-0">
+                                        <svg className="h-8 w-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-800">{device.name}</p>
+                                        <p className="text-sm text-gray-500">
+                                          별칭: <span className="font-mono text-purple-600">/{device.alias}</span>
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                          위치: {device.location} | PIN: <span className="font-mono font-bold">{device.pin_code}</span>
+                                        </p>
+                                      </div>
+                                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                                        device.status === 'online'
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {device.status === 'online' ? '온라인' : '오프라인'}
+                                      </div>
+                                      <div className="flex space-x-1">
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleStartEditDevice(device); }}
+                                          className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition"
+                                        >
+                                          수정
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteDevice(device); }}
+                                          disabled={actionLoading === device.id}
+                                          className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition disabled:opacity-50"
+                                        >
+                                          삭제
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-500 italic">등록된 디바이스가 없습니다.</p>
+                            <p className="text-sm text-gray-500 italic">할당된 디바이스가 없습니다.</p>
                           )}
                         </div>
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -626,6 +778,51 @@ export default function SuperAdminPage() {
           )}
         </div>
       </main>
+
+      {/* 디바이스 수정 모달 (모바일 대응) */}
+      {editingDevice && (
+        <div className="md:hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-3">
+            <h3 className="text-lg font-bold text-gray-800">디바이스 수정</h3>
+            <input
+              value={editDeviceForm.name}
+              onChange={(e) => setEditDeviceForm(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              placeholder="디바이스 이름"
+            />
+            <input
+              value={editDeviceForm.location}
+              onChange={(e) => setEditDeviceForm(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              placeholder="설치 위치"
+            />
+            <input
+              value={editDeviceForm.pin_code}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                setEditDeviceForm(prev => ({ ...prev, pin_code: v }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono text-center"
+              placeholder="PIN 코드"
+              maxLength={4}
+            />
+            <div className="flex space-x-2 pt-2">
+              <button
+                onClick={handleUpdateDevice}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                저장
+              </button>
+              <button
+                onClick={() => setEditingDevice(null)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

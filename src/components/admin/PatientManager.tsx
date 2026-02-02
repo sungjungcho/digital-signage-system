@@ -128,7 +128,8 @@ export default function PatientManager() {
       if (!devicesResponse.ok) {
         throw new Error('디바이스 목록을 가져올 수 없습니다');
       }
-      const devices = await devicesResponse.json();
+      const devicesData = await devicesResponse.json();
+      const devices = Array.isArray(devicesData) ? devicesData : (devicesData.devices || []);
       const deviceIds = devices.map((device: any) => device.id);
 
       if (deviceIds.length === 0) {

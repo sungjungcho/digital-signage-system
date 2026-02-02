@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { device } from '@/types/device';
 
 import DeviceList from '@/components/admin/DeviceList';
-import DeviceForm from '@/components/admin/DeviceForm';
 import ContentManager from '@/components/admin/ContentManager';
 import PatientManager from '@/components/admin/PatientManager';
 import NoticeManager from '@/components/admin/NoticeManager';
@@ -15,79 +14,45 @@ type AlertForm = {
   targetDeviceIds: string[];
 };
 
-interface DeviceLimit {
-  current: number;
-  max: number;
-}
-
 export default function AdminDashboard() {
   const router = useRouter();
   const [selectedDevice, setSelectedDevice] = useState<device | null>(null);
   const [devices, setDevices] = useState<device[]>([]);
-  const [deviceLimit, setDeviceLimit] = useState<DeviceLimit | null>(null);
+  const [userRole, setUserRole] = useState<string>('user');
   const [alertForm, setAlertForm] = useState<AlertForm>({ message: '', targetDeviceIds: [] });
   const [alertDuration, setAlertDuration] = useState<number>(5000);
   const [sending, setSending] = useState(false);
   const [alertResult, setAlertResult] = useState<string | null>(null);
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestCount, setRequestCount] = useState(1);
-  const [requestReason, setRequestReason] = useState('');
-  const [requestLoading, setRequestLoading] = useState(false);
-  const [requestResult, setRequestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const fetchDevices = async () => {
     try {
       const response = await fetch('/api/devices');
       const data = await response.json();
-      // 일반 사용자의 경우 { devices: [], deviceLimit: {} } 형태로 반환
-      if (data.devices && Array.isArray(data.devices)) {
-        setDevices(data.devices);
-        setDeviceLimit(data.deviceLimit || null);
-      } else if (Array.isArray(data)) {
-        // 슈퍼관리자의 경우 배열로 반환
+      if (Array.isArray(data)) {
         setDevices(data);
-        setDeviceLimit(null);
       }
     } catch (error) {
       console.error('디바이스 목록을 가져오는 중 오류 발생:', error);
     }
   };
 
-  const handleRequestMoreDevices = async () => {
-    setRequestLoading(true);
-    setRequestResult(null);
+  const fetchUserRole = async () => {
     try {
-      const response = await fetch('/api/device-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestedCount: requestCount,
-          reason: requestReason,
-        }),
-      });
+      const response = await fetch('/api/auth/check');
       const data = await response.json();
-      if (response.ok) {
-        setRequestResult({ success: true, message: '요청이 접수되었습니다. 관리자 승인을 기다려주세요.' });
-        setRequestCount(1);
-        setRequestReason('');
-      } else {
-        setRequestResult({ success: false, message: data.error || '요청 실패' });
+      if (data.user?.role) {
+        setUserRole(data.user.role);
       }
     } catch (error) {
-      setRequestResult({ success: false, message: '요청 중 오류가 발생했습니다.' });
-    } finally {
-      setRequestLoading(false);
+      console.error('사용자 정보 조회 오류:', error);
     }
   };
 
   useEffect(() => {
     fetchDevices();
+    fetchUserRole();
     fetch('/api/websocket').catch(console.error);
   }, []);
-
-  const handleDeviceAdded = () => {
-    fetchDevices();
-  };
 
   const handleLogout = async () => {
     try {
@@ -117,15 +82,25 @@ export default function AdminDashboard() {
                 <p className="text-base text-teal-600 font-medium">병원 통합 관리 시스템</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition shadow-sm border border-gray-300 font-medium"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span>로그아웃</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              {userRole === 'superadmin' && (
+                <a
+                  href="/superadmin"
+                  className="px-4 py-2.5 bg-purple-500/20 text-purple-700 rounded-xl hover:bg-purple-500/30 transition font-medium"
+                >
+                  슈퍼관리자
+                </a>
+              )}
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition shadow-sm border border-gray-300 font-medium"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>로그아웃</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -133,9 +108,8 @@ export default function AdminDashboard() {
       {/* 메인 컨텐츠 - 반응형 2단 레이아웃 */}
       <div className="max-w-[1920px] mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[380px,1fr] gap-6">
-          {/* 왼쪽 사이드바: 디바이스 관리 */}
+          {/* 왼쪽 사이드바: 디바이스 목록 */}
           <div className="space-y-6">
-            {/* 디바이스 관리 섹션 */}
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-teal-100">
               <div className="flex items-center space-x-3 mb-5">
                 <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -143,20 +117,24 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800">디바이스 관리</h2>
+                <h2 className="text-2xl font-bold text-gray-800">내 디바이스</h2>
               </div>
-              <DeviceForm
-                onDeviceAdded={handleDeviceAdded}
-                deviceLimit={deviceLimit}
-                onRequestMoreDevices={() => setShowRequestModal(true)}
+
+              {/* 안내 메시지 */}
+              {userRole !== 'superadmin' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    디바이스 추가/수정이 필요하시면 관리자에게 문의하세요.
+                  </p>
+                </div>
+              )}
+
+              <DeviceList
+                devices={devices}
+                onDeviceSelect={setSelectedDevice}
+                onDeviceDeleted={fetchDevices}
+                userRole={userRole}
               />
-              <div className="mt-6">
-                <DeviceList
-                  devices={devices}
-                  onDeviceSelect={setSelectedDevice}
-                  onDeviceDeleted={fetchDevices}
-                />
-              </div>
             </div>
           </div>
 
@@ -388,72 +366,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-
-      {/* 디바이스 추가 요청 모달 */}
-      {showRequestModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">디바이스 추가 요청</h3>
-
-            {requestResult ? (
-              <div className={`p-4 rounded-lg mb-4 ${requestResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                {requestResult.message}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    추가 요청 디바이스 수
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={requestCount}
-                    onChange={(e) => setRequestCount(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    요청 사유 (선택)
-                  </label>
-                  <textarea
-                    value={requestReason}
-                    onChange={(e) => setRequestReason(e.target.value)}
-                    rows={3}
-                    placeholder="추가 디바이스가 필요한 이유를 입력해주세요"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRequestModal(false);
-                  setRequestResult(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-              >
-                닫기
-              </button>
-              {!requestResult && (
-                <button
-                  type="button"
-                  onClick={handleRequestMoreDevices}
-                  disabled={requestLoading}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition font-medium disabled:opacity-50"
-                >
-                  {requestLoading ? '요청 중...' : '요청하기'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

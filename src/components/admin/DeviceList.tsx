@@ -7,9 +7,11 @@ interface DeviceListProps {
   devices: Device[];
   onDeviceSelect: (device: Device) => void;
   onDeviceDeleted: () => void;
+  userRole?: string;
 }
 
-export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }: DeviceListProps) {
+export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, userRole }: DeviceListProps) {
+  const isSuperAdmin = userRole === 'superadmin';
   const [deletingDeviceId, setDeletingDeviceId] = useState<string | null>(null);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editedName, setEditedName] = useState<string>('');
@@ -161,7 +163,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }:
           className="border rounded-lg p-4 hover:bg-gray-50"
         >
           <div className="flex items-center justify-between">
-            {editingDeviceId === device.id ? (
+            {isSuperAdmin && editingDeviceId === device.id ? (
               <div className="flex-1 space-y-2">
                 <div className="flex items-center space-x-2">
                   <label className="text-sm text-gray-600 w-16">이름</label>
@@ -231,37 +233,41 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted }:
                   }`}>
                     {device.status}
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenPinModal(device);
-                    }}
-                    className="px-2 py-1 text-base text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
-                    title="PIN 코드 변경"
-                  >
-                    PIN
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditDevice(device);
-                    }}
-                    className="px-2 py-1 text-base text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                    title="디바이스 정보 수정"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteDevice(device.id, device.name);
-                    }}
-                    disabled={deletingDeviceId === device.id}
-                    className="px-2 py-1 text-base text-red-600 hover:text-red-800 hover:bg-red-50 rounded disabled:opacity-50"
-                    title="디바이스 삭제"
-                  >
-                    {deletingDeviceId === device.id ? '삭제 중...' : '삭제'}
-                  </button>
+                  {isSuperAdmin && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenPinModal(device);
+                        }}
+                        className="px-2 py-1 text-base text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
+                        title="PIN 코드 변경"
+                      >
+                        PIN
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditDevice(device);
+                        }}
+                        className="px-2 py-1 text-base text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                        title="디바이스 정보 수정"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDevice(device.id, device.name);
+                        }}
+                        disabled={deletingDeviceId === device.id}
+                        className="px-2 py-1 text-base text-red-600 hover:text-red-800 hover:bg-red-50 rounded disabled:opacity-50"
+                        title="디바이스 삭제"
+                      >
+                        {deletingDeviceId === device.id ? '삭제 중...' : '삭제'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}

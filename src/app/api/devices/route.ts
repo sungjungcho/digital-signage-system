@@ -26,9 +26,8 @@ export async function GET() {
 
     const db = new Database(dbPath);
 
-    // 슈퍼관리자는 모든 디바이스, 일반 사용자는 본인 디바이스만
+    // 슈퍼관리자는 모든 디바이스, 일반 사용자는 본인에게 할당된 디바이스만
     let devices;
-    let deviceLimit = null;
 
     if (userRole === 'superadmin') {
       devices = db.prepare(`
@@ -41,13 +40,6 @@ export async function GET() {
       devices = db.prepare(`
         SELECT * FROM device WHERE user_id = ? ORDER BY createdAt ASC
       `).all(userId);
-
-      // 일반 사용자는 디바이스 제한 정보도 함께 반환
-      const user = db.prepare('SELECT max_devices FROM users WHERE id = ?').get(userId) as { max_devices: number } | undefined;
-      deviceLimit = {
-        current: devices.length,
-        max: user?.max_devices ?? 3
-      };
     }
 
     // 각 디바이스의 콘텐츠도 함께 조회
@@ -64,14 +56,6 @@ export async function GET() {
 
     db.close();
 
-    // 일반 사용자는 디바이스 제한 정보도 함께 반환
-    if (deviceLimit) {
-      return NextResponse.json({
-        devices: devicesWithContents,
-        deviceLimit
-      });
-    }
-
     return NextResponse.json(devicesWithContents);
   } catch (error) {
     console.error('Error fetching devices:', error);
@@ -82,6 +66,7 @@ export async function GET() {
   }
 }
 
+// 슈퍼관리자 전용: 디바이스 생성 및 사용자 할당
 export async function POST(req: Request) {
   try {
     const headersList = await headers();
@@ -95,43 +80,54 @@ export async function POST(req: Request) {
       );
     }
 
+    // 슈퍼관리자만 디바이스 생성 가능
+    if (userRole !== 'superadmin') {
+      return NextResponse.json(
+        { error: '슈퍼관리자만 디바이스를 등록할 수 있습니다.' },
+        { status: 403 }
+      );
+    }
+
     const data = await req.json();
 
-    // PIN 코드 필수 검증
-    if (!data.pin_code || !isValidPinCode(data.pin_code)) {
+    // PIN 코드: 직접 입력 또는 자동 생성
+    let pinCode = data.pin_code;
+    if (!pinCode || data.auto_pin) {
+      pinCode = String(Math.floor(1000 + Math.random() * 9000));
+    }
+
+    if (!isValidPinCode(pinCode)) {
       return NextResponse.json(
         { error: 'PIN 코드는 4자리 숫자여야 합니다.' },
         { status: 400 }
       );
     }
 
+    // 할당할 사용자 ID (필수)
+    const assignUserId = data.user_id;
+    if (!assignUserId) {
+      return NextResponse.json(
+        { error: '디바이스를 할당할 사용자를 선택해주세요.' },
+        { status: 400 }
+      );
+    }
+
     const db = new Database(dbPath);
 
-    // 디바이스 등록 제한 체크 (슈퍼관리자는 제외)
-    if (userRole !== 'superadmin') {
-      const user = db.prepare('SELECT max_devices FROM users WHERE id = ?').get(userId) as { max_devices: number } | undefined;
-      const deviceCount = db.prepare('SELECT COUNT(*) as count FROM device WHERE user_id = ?').get(userId) as { count: number };
-
-      const maxDevices = user?.max_devices ?? 3;
-
-      if (deviceCount.count >= maxDevices) {
-        db.close();
-        return NextResponse.json(
-          {
-            error: '디바이스 등록 한도에 도달했습니다.',
-            code: 'DEVICE_LIMIT_REACHED',
-            currentCount: deviceCount.count,
-            maxDevices: maxDevices
-          },
-          { status: 403 }
-        );
-      }
+    // 할당 대상 사용자 존재 확인
+    const targetUser = db.prepare('SELECT id, status FROM users WHERE id = ?').get(assignUserId) as any;
+    if (!targetUser || targetUser.status !== 'approved') {
+      db.close();
+      return NextResponse.json(
+        { error: '유효하지 않은 사용자입니다.' },
+        { status: 400 }
+      );
     }
 
     const deviceId = randomUUID();
     const now = new Date().toISOString();
 
-    // alias 생성: 사용자 입력 또는 자동 생성 (device-xxxxx 형식)
+    // alias 생성: 사용자 입력 또는 자동 생성
     let alias = data.alias;
     if (!alias) {
       alias = 'device-' + deviceId.substring(0, 8);
@@ -152,7 +148,7 @@ export async function POST(req: Request) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(deviceId, data.name, data.location, alias, 'offline', userId, data.pin_code, now, now);
+    stmt.run(deviceId, data.name, data.location, alias, 'offline', assignUserId, pinCode, now, now);
 
     const newDevice = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
     db.close();

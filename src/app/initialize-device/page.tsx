@@ -33,7 +33,11 @@ export default function InitializeDevice() {
         const data = await response.json();
 
         if (Array.isArray(data)) {
+          // 슈퍼관리자: 배열로 반환
           setDevices(data);
+        } else if (data.devices && Array.isArray(data.devices)) {
+          // 일반 사용자: { devices: [], deviceLimit: {} } 형태로 반환
+          setDevices(data.devices);
         } else {
           console.error('[InitializeDevice] Data is not an array:', data);
           setError('디바이스 목록 형식이 올바르지 않습니다.');

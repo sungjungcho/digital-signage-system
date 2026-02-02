@@ -103,11 +103,11 @@ export async function PATCH(
       );
     }
 
-    // 권한 확인
-    if (!canAccessDevice(device, userId, userRole)) {
+    // 슈퍼관리자만 디바이스 속성 수정 가능
+    if (userRole !== 'superadmin') {
       db.close();
       return NextResponse.json(
-        { error: '이 디바이스를 수정할 권한이 없습니다.' },
+        { error: '슈퍼관리자만 디바이스를 수정할 수 있습니다.' },
         { status: 403 }
       );
     }
@@ -133,11 +133,23 @@ export async function PATCH(
       );
     }
 
+    // 사용자 재할당 시 유효성 검사
+    if (data.user_id && data.user_id !== device.user_id) {
+      const targetUser = db.prepare('SELECT id, status FROM users WHERE id = ?').get(data.user_id) as any;
+      if (!targetUser || targetUser.status !== 'approved') {
+        db.close();
+        return NextResponse.json(
+          { error: '유효하지 않은 사용자입니다.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // 디바이스 업데이트
     const now = new Date().toISOString();
     const stmt = db.prepare(`
       UPDATE device
-      SET name = ?, location = ?, alias = ?, pin_code = ?, updatedAt = ?
+      SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, updatedAt = ?
       WHERE id = ?
     `);
 
@@ -146,6 +158,7 @@ export async function PATCH(
       data.location || device.location,
       data.alias || device.alias,
       data.pin_code !== undefined ? data.pin_code : device.pin_code,
+      data.user_id || device.user_id,
       now,
       device.id
     );
@@ -193,11 +206,11 @@ export async function DELETE(
       );
     }
 
-    // 권한 확인
-    if (!canAccessDevice(device, userId, userRole)) {
+    // 슈퍼관리자만 디바이스 삭제 가능
+    if (userRole !== 'superadmin') {
       db.close();
       return NextResponse.json(
-        { error: '이 디바이스를 삭제할 권한이 없습니다.' },
+        { error: '슈퍼관리자만 디바이스를 삭제할 수 있습니다.' },
         { status: 403 }
       );
     }
