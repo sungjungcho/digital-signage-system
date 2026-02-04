@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import Database from 'better-sqlite3';
-import path from 'path';
 import { randomUUID } from 'crypto';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, queryAll, execute } from '@/lib/db';
 
 // 4자리 PIN 코드 유효성 검사
 function isValidPinCode(pin: string): boolean {
@@ -24,37 +21,33 @@ export async function GET() {
       );
     }
 
-    const db = new Database(dbPath);
-
     // 슈퍼관리자는 모든 디바이스, 일반 사용자는 본인에게 할당된 디바이스만
     let devices;
 
     if (userRole === 'superadmin') {
-      devices = db.prepare(`
+      devices = await queryAll(`
         SELECT d.*, u.username as owner_username
         FROM device d
         LEFT JOIN users u ON d.user_id = u.id
         ORDER BY d.createdAt ASC
-      `).all();
+      `);
     } else {
-      devices = db.prepare(`
+      devices = await queryAll(`
         SELECT * FROM device WHERE user_id = ? ORDER BY createdAt ASC
-      `).all(userId);
+      `, [userId]);
     }
 
     // 각 디바이스의 콘텐츠도 함께 조회
-    const devicesWithContents = devices.map((device: any) => {
-      const contents = db.prepare(`
-        SELECT * FROM devicecontent WHERE deviceId = ? ORDER BY "order" ASC
-      `).all(device.id);
+    const devicesWithContents = await Promise.all(devices.map(async (device: any) => {
+      const contents = await queryAll(`
+        SELECT * FROM devicecontent WHERE deviceId = ? ORDER BY \`order\` ASC
+      `, [device.id]);
 
       return {
         ...device,
         contents,
       };
-    });
-
-    db.close();
+    }));
 
     return NextResponse.json(devicesWithContents);
   } catch (error) {
@@ -112,12 +105,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const db = new Database(dbPath);
-
     // 할당 대상 사용자 존재 확인
-    const targetUser = db.prepare('SELECT id, status FROM users WHERE id = ?').get(assignUserId) as any;
+    const targetUser = await queryOne('SELECT id, status FROM users WHERE id = ?', [assignUserId]) as any;
     if (!targetUser || targetUser.status !== 'approved') {
-      db.close();
       return NextResponse.json(
         { error: '유효하지 않은 사용자입니다.' },
         { status: 400 }
@@ -134,24 +124,20 @@ export async function POST(req: Request) {
     }
 
     // alias 중복 체크
-    const existingAlias = db.prepare('SELECT id FROM device WHERE alias = ?').get(alias);
+    const existingAlias = await queryOne('SELECT id FROM device WHERE alias = ?', [alias]);
     if (existingAlias) {
-      db.close();
       return NextResponse.json(
         { error: '이미 사용 중인 별칭입니다.' },
         { status: 400 }
       );
     }
 
-    const stmt = db.prepare(`
+    await execute(`
       INSERT INTO device (id, name, location, alias, status, user_id, pin_code, createdAt, updatedAt)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `, [deviceId, data.name, data.location, alias, 'offline', assignUserId, pinCode, now, now]);
 
-    stmt.run(deviceId, data.name, data.location, alias, 'offline', assignUserId, pinCode, now, now);
-
-    const newDevice = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
-    db.close();
+    const newDevice = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
 
     return NextResponse.json(newDevice);
   } catch (error) {

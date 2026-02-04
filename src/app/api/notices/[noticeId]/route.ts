@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 // 공지사항 수정
 export async function PUT(
@@ -13,17 +10,14 @@ export async function PUT(
     const { noticeId } = await params;
     const { title, content, category, favorite } = await req.json();
 
-    const db = new Database(dbPath);
     const now = new Date().toISOString();
 
-    db.prepare(`
-      UPDATE notice
-      SET title = ?, content = ?, category = ?, favorite = ?, updatedAt = ?
-      WHERE id = ?
-    `).run(title, content, category || null, favorite ? 1 : 0, now, noticeId);
+    await execute(
+      'UPDATE notice SET title = ?, content = ?, category = ?, favorite = ?, updatedAt = ? WHERE id = ?',
+      [title, content, category || null, favorite ? 1 : 0, now, noticeId]
+    );
 
-    const updatedNotice = db.prepare('SELECT * FROM notice WHERE id = ?').get(noticeId);
-    db.close();
+    const updatedNotice = await queryOne('SELECT * FROM notice WHERE id = ?', [noticeId]);
 
     return NextResponse.json(updatedNotice);
   } catch (error) {
@@ -43,9 +37,7 @@ export async function DELETE(
   try {
     const { noticeId } = await params;
 
-    const db = new Database(dbPath);
-    db.prepare('DELETE FROM notice WHERE id = ?').run(noticeId);
-    db.close();
+    await execute('DELETE FROM notice WHERE id = ?', [noticeId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -65,17 +57,14 @@ export async function PATCH(
   try {
     const { noticeId } = await params;
 
-    const db = new Database(dbPath);
     const now = new Date().toISOString();
 
-    db.prepare(`
-      UPDATE notice
-      SET lastUsedAt = ?, usageCount = usageCount + 1
-      WHERE id = ?
-    `).run(now, noticeId);
+    await execute(
+      'UPDATE notice SET lastUsedAt = ?, usageCount = usageCount + 1 WHERE id = ?',
+      [now, noticeId]
+    );
 
-    const updatedNotice = db.prepare('SELECT * FROM notice WHERE id = ?').get(noticeId);
-    db.close();
+    const updatedNotice = await queryOne('SELECT * FROM notice WHERE id = ?', [noticeId]);
 
     return NextResponse.json(updatedNotice);
   } catch (error) {

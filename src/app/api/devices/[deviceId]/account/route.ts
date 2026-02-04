@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { queryOne, execute } from '@/lib/db';
 
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 const BCRYPT_ROUNDS = 12; // bcrypt 해싱 라운드 (10-12 권장)
 
 // UUID 형식인지 확인하는 함수
@@ -14,12 +12,12 @@ function isUUID(str: string): boolean {
 }
 
 // deviceId 또는 alias로 실제 deviceId 조회
-function getDeviceId(db: Database.Database, deviceIdOrAlias: string): string | null {
+async function getDeviceId(deviceIdOrAlias: string): Promise<string | null> {
   if (isUUID(deviceIdOrAlias)) {
-    const device = db.prepare('SELECT id FROM device WHERE id = ?').get(deviceIdOrAlias) as any;
+    const device = await queryOne('SELECT id FROM device WHERE id = ?', [deviceIdOrAlias]);
     return device?.id || null;
   }
-  const device = db.prepare('SELECT id FROM device WHERE alias = ?').get(deviceIdOrAlias) as any;
+  const device = await queryOne('SELECT id FROM device WHERE alias = ?', [deviceIdOrAlias]);
   return device?.id || null;
 }
 
@@ -35,27 +33,25 @@ export async function GET(
 ) {
   try {
     const { deviceId: deviceIdOrAlias } = await params;
-    const db = new Database(dbPath);
 
-    const deviceId = getDeviceId(db, deviceIdOrAlias);
+    const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.', hasAccount: false },
         { status: 404 }
       );
     }
 
-    const account = db.prepare(
-      'SELECT id, device_id, username, created_at, updated_at FROM device_accounts WHERE device_id = ?'
-    ).get(deviceId) as any;
+    const account = await queryOne(
+      'SELECT id, device_id, username, created_at, updated_at FROM device_accounts WHERE device_id = ?',
+      [deviceId]
+    );
 
     // 세션 정보도 함께 조회
-    const session = db.prepare(
-      'SELECT id, created_at FROM device_sessions WHERE device_id = ?'
-    ).get(deviceId) as any;
-
-    db.close();
+    const session = await queryOne(
+      'SELECT id, created_at FROM device_sessions WHERE device_id = ?',
+      [deviceId]
+    );
 
     if (!account) {
       return NextResponse.json({ hasAccount: false, deviceId });
@@ -109,12 +105,9 @@ export async function POST(
       );
     }
 
-    const db = new Database(dbPath);
-
     // 디바이스 존재 확인 (id 또는 alias로)
-    const deviceId = getDeviceId(db, deviceIdOrAlias);
+    const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -122,12 +115,12 @@ export async function POST(
     }
 
     // 기존 계정 확인
-    const existingAccount = db.prepare(
-      'SELECT id FROM device_accounts WHERE device_id = ?'
-    ).get(deviceId);
+    const existingAccount = await queryOne(
+      'SELECT id FROM device_accounts WHERE device_id = ?',
+      [deviceId]
+    );
 
     if (existingAccount) {
-      db.close();
       return NextResponse.json(
         { error: '이미 계정이 존재합니다. 수정하려면 PUT 메서드를 사용하세요.' },
         { status: 409 }
@@ -138,11 +131,10 @@ export async function POST(
     const passwordHash = await hashPassword(password);
     const now = new Date().toISOString();
 
-    db.prepare(
-      'INSERT INTO device_accounts (id, device_id, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(accountId, deviceId, username, passwordHash, now);
-
-    db.close();
+    await execute(
+      'INSERT INTO device_accounts (id, device_id, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
+      [accountId, deviceId, username, passwordHash, now]
+    );
 
     return NextResponse.json({
       success: true,
@@ -173,23 +165,20 @@ export async function PUT(
     const username = body.username?.trim();
     const password = body.password;
 
-    const db = new Database(dbPath);
-
-    const deviceId = getDeviceId(db, deviceIdOrAlias);
+    const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
-    const existingAccount = db.prepare(
-      'SELECT id FROM device_accounts WHERE device_id = ?'
-    ).get(deviceId);
+    const existingAccount = await queryOne(
+      'SELECT id FROM device_accounts WHERE device_id = ?',
+      [deviceId]
+    );
 
     if (!existingAccount) {
-      db.close();
       return NextResponse.json(
         { error: '계정이 존재하지 않습니다.' },
         { status: 404 }
@@ -207,7 +196,6 @@ export async function PUT(
 
     if (password) {
       if (password.length < 4) {
-        db.close();
         return NextResponse.json(
           { error: '비밀번호는 4자 이상이어야 합니다.' },
           { status: 400 }
@@ -218,7 +206,6 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      db.close();
       return NextResponse.json(
         { error: '수정할 내용이 없습니다.' },
         { status: 400 }
@@ -229,16 +216,15 @@ export async function PUT(
     values.push(now);
     values.push(deviceId);
 
-    db.prepare(
-      `UPDATE device_accounts SET ${updates.join(', ')} WHERE device_id = ?`
-    ).run(...values);
+    await execute(
+      `UPDATE device_accounts SET ${updates.join(', ')} WHERE device_id = ?`,
+      values
+    );
 
     // 비밀번호 변경 시 기존 세션 삭제
     if (password) {
-      db.prepare('DELETE FROM device_sessions WHERE device_id = ?').run(deviceId);
+      await execute('DELETE FROM device_sessions WHERE device_id = ?', [deviceId]);
     }
-
-    db.close();
 
     return NextResponse.json({
       success: true,
@@ -260,11 +246,9 @@ export async function DELETE(
 ) {
   try {
     const { deviceId: deviceIdOrAlias } = await params;
-    const db = new Database(dbPath);
 
-    const deviceId = getDeviceId(db, deviceIdOrAlias);
+    const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -272,11 +256,9 @@ export async function DELETE(
     }
 
     // 세션 먼저 삭제
-    db.prepare('DELETE FROM device_sessions WHERE device_id = ?').run(deviceId);
+    await execute('DELETE FROM device_sessions WHERE device_id = ?', [deviceId]);
     // 계정 삭제
-    db.prepare('DELETE FROM device_accounts WHERE device_id = ?').run(deviceId);
-
-    db.close();
+    await execute('DELETE FROM device_accounts WHERE device_id = ?', [deviceId]);
 
     return NextResponse.json({
       success: true,

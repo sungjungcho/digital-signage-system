@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 // UUID 형식인지 확인하는 함수
 function isUUID(str: string): boolean {
@@ -12,12 +9,12 @@ function isUUID(str: string): boolean {
 }
 
 // deviceId 또는 alias로 디바이스 조회
-function findDevice(db: Database.Database, deviceIdOrAlias: string) {
+async function findDevice(deviceIdOrAlias: string) {
   if (isUUID(deviceIdOrAlias)) {
-    return db.prepare('SELECT * FROM device WHERE id = ?').get(deviceIdOrAlias);
+    return await queryOne('SELECT * FROM device WHERE id = ?', [deviceIdOrAlias]);
   }
   // UUID가 아니면 alias로 조회
-  return db.prepare('SELECT * FROM device WHERE alias = ?').get(deviceIdOrAlias);
+  return await queryOne('SELECT * FROM device WHERE alias = ?', [deviceIdOrAlias]);
 }
 
 // 4자리 PIN 코드 유효성 검사
@@ -43,9 +40,7 @@ export async function GET(
     const userId = headersList.get('x-user-id');
     const userRole = headersList.get('x-user-role');
 
-    const db = new Database(dbPath);
-    const device = findDevice(db, deviceId) as any;
-    db.close();
+    const device = await findDevice(deviceId) as any;
 
     if (!device) {
       return NextResponse.json(
@@ -90,13 +85,11 @@ export async function PATCH(
     }
 
     const data = await req.json();
-    const db = new Database(dbPath);
 
     // 디바이스 존재 확인 (id 또는 alias로)
-    const device = findDevice(db, deviceId) as any;
+    const device = await findDevice(deviceId) as any;
 
     if (!device) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -105,7 +98,6 @@ export async function PATCH(
 
     // 슈퍼관리자만 디바이스 속성 수정 가능
     if (userRole !== 'superadmin') {
-      db.close();
       return NextResponse.json(
         { error: '슈퍼관리자만 디바이스를 수정할 수 있습니다.' },
         { status: 403 }
@@ -114,9 +106,8 @@ export async function PATCH(
 
     // alias 중복 체크 (변경하려는 경우)
     if (data.alias && data.alias !== device.alias) {
-      const existingAlias = db.prepare('SELECT id FROM device WHERE alias = ? AND id != ?').get(data.alias, device.id);
+      const existingAlias = await queryOne('SELECT id FROM device WHERE alias = ? AND id != ?', [data.alias, device.id]);
       if (existingAlias) {
-        db.close();
         return NextResponse.json(
           { error: '이미 사용 중인 별칭입니다.' },
           { status: 400 }
@@ -126,7 +117,6 @@ export async function PATCH(
 
     // PIN 코드 변경 시 유효성 검사
     if (data.pin_code !== undefined && !isValidPinCode(data.pin_code)) {
-      db.close();
       return NextResponse.json(
         { error: 'PIN 코드는 4자리 숫자여야 합니다.' },
         { status: 400 }
@@ -135,9 +125,8 @@ export async function PATCH(
 
     // 사용자 재할당 시 유효성 검사
     if (data.user_id && data.user_id !== device.user_id) {
-      const targetUser = db.prepare('SELECT id, status FROM users WHERE id = ?').get(data.user_id) as any;
+      const targetUser = await queryOne('SELECT id, status FROM users WHERE id = ?', [data.user_id]) as any;
       if (!targetUser || targetUser.status !== 'approved') {
-        db.close();
         return NextResponse.json(
           { error: '유효하지 않은 사용자입니다.' },
           { status: 400 }
@@ -147,13 +136,11 @@ export async function PATCH(
 
     // 디바이스 업데이트
     const now = new Date().toISOString();
-    const stmt = db.prepare(`
+    await execute(`
       UPDATE device
       SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, updatedAt = ?
       WHERE id = ?
-    `);
-
-    stmt.run(
+    `, [
       data.name || device.name,
       data.location || device.location,
       data.alias || device.alias,
@@ -161,10 +148,9 @@ export async function PATCH(
       data.user_id || device.user_id,
       now,
       device.id
-    );
+    ]);
 
-    const updatedDevice = db.prepare('SELECT * FROM device WHERE id = ?').get(device.id);
-    db.close();
+    const updatedDevice = await queryOne('SELECT * FROM device WHERE id = ?', [device.id]);
 
     return NextResponse.json(updatedDevice);
   } catch (error) {
@@ -193,13 +179,10 @@ export async function DELETE(
       );
     }
 
-    const db = new Database(dbPath);
-
     // 디바이스 존재 확인 (id 또는 alias로)
-    const device = findDevice(db, deviceId) as any;
+    const device = await findDevice(deviceId) as any;
 
     if (!device) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -208,7 +191,6 @@ export async function DELETE(
 
     // 슈퍼관리자만 디바이스 삭제 가능
     if (userRole !== 'superadmin') {
-      db.close();
       return NextResponse.json(
         { error: '슈퍼관리자만 디바이스를 삭제할 수 있습니다.' },
         { status: 403 }
@@ -216,12 +198,10 @@ export async function DELETE(
     }
 
     // 관련된 콘텐츠 먼저 삭제 (CASCADE로 자동 삭제되지만 명시적으로 처리)
-    db.prepare('DELETE FROM devicecontent WHERE deviceId = ?').run(device.id);
+    await execute('DELETE FROM devicecontent WHERE deviceId = ?', [device.id]);
 
     // 디바이스 삭제
-    db.prepare('DELETE FROM device WHERE id = ?').run(device.id);
-
-    db.close();
+    await execute('DELETE FROM device WHERE id = ?', [device.id]);
 
     return NextResponse.json({ message: '디바이스가 성공적으로 삭제되었습니다.' });
   } catch (error) {

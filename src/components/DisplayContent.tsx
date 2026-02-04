@@ -6,9 +6,10 @@ import MixedContentDisplay from './MixedContentDisplay';
 interface DisplayContentProps {
   content: Content;
   deviceId?: string;
+  onVideoEnd?: () => void;
 }
 
-export default function DisplayContent({ content, deviceId = '' }: DisplayContentProps) {
+export default function DisplayContent({ content, deviceId = '', onVideoEnd }: DisplayContentProps) {
   switch (content.type) {
     case 'image':
       return (
@@ -47,9 +48,10 @@ export default function DisplayContent({ content, deviceId = '' }: DisplayConten
           <video
             src={videoContent.url}
             autoPlay={videoContent.autoplay !== false}
-            loop={videoContent.loop !== false}
+            loop={videoContent.duration === 0 ? false : videoContent.loop !== false}
             muted={videoContent.muted !== false}
             className="w-full h-full object-contain"
+            onEnded={videoContent.duration === 0 && onVideoEnd ? onVideoEnd : undefined}
           />
         </div>
       );

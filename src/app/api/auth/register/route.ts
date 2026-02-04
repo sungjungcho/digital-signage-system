@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import { queryOne, execute } from '@/lib/db';
 
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 const BCRYPT_ROUNDS = 12;
 
 export async function POST(request: NextRequest) {
@@ -44,12 +42,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = new Database(dbPath);
-
     // 중복 아이디 확인
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    const existingUser = await queryOne('SELECT id FROM users WHERE username = ?', [username]);
     if (existingUser) {
-      db.close();
       return NextResponse.json(
         { message: '이미 사용 중인 아이디입니다.' },
         { status: 409 }
@@ -58,9 +53,8 @@ export async function POST(request: NextRequest) {
 
     // 중복 이메일 확인 (이메일이 제공된 경우)
     if (email) {
-      const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+      const existingEmail = await queryOne('SELECT id FROM users WHERE email = ?', [email]);
       if (existingEmail) {
-        db.close();
         return NextResponse.json(
           { message: '이미 사용 중인 이메일입니다.' },
           { status: 409 }
@@ -74,12 +68,10 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     // 사용자 생성 (status: pending)
-    db.prepare(`
-      INSERT INTO users (id, username, email, password_hash, role, status, name, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, username, email || null, passwordHash, 'user', 'pending', name || null, now, now);
-
-    db.close();
+    await execute(
+      'INSERT INTO users (id, username, email, password_hash, role, status, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, username, email || null, passwordHash, 'user', 'pending', name || null, now, now]
+    );
 
     return NextResponse.json(
       {

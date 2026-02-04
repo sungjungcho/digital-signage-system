@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
 import path from 'path';
 import { writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 // WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
 let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
@@ -44,12 +42,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = new Database(dbPath);
-
     // 디바이스 확인
-    const device = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
+    const device = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
     if (!device) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -81,9 +76,10 @@ export async function POST(req: NextRequest) {
     );
 
     // 기존 콘텐츠의 최대 order 값 조회
-    const maxOrderRow = db
-      .prepare('SELECT MAX("order") as maxOrder FROM devicecontent WHERE deviceId = ?')
-      .get(deviceId) as { maxOrder: number | null };
+    const maxOrderRow = await queryOne<{ maxOrder: number | null }>(
+      'SELECT MAX(`order`) as maxOrder FROM devicecontent WHERE deviceId = ?',
+      [deviceId]
+    );
     const nextOrder = (maxOrderRow?.maxOrder ?? -1) + 1;
 
     // 복합형 콘텐츠 저장 (metadata에 elements 저장)
@@ -93,13 +89,13 @@ export async function POST(req: NextRequest) {
     // 전체 재생 시간 계산 (모든 요소의 duration 합산)
     const totalDuration = processedElements.reduce((sum: number, el: any) => sum + (el.duration || 0), 0);
 
-    db.prepare(`
+    await execute(`
       INSERT INTO devicecontent (
-        id, deviceId, type, metadata, duration, "order", active,
+        id, deviceId, type, metadata, duration, \`order\`, active,
         scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime,
         createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       newContentId,
       deviceId,
       'mixed',
@@ -116,9 +112,7 @@ export async function POST(req: NextRequest) {
       endTime || null,
       now,
       now
-    );
-
-    db.close();
+    ]);
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
     if (broadcastContentUpdateToDevice) {

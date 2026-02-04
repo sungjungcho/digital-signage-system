@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, queryAll, execute } from '@/lib/db';
 
 // WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
 let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
@@ -65,20 +63,19 @@ export async function POST(req: Request) {
     }
 
     // 데이터베이스에 콘텐츠 정보 저장
-    const db = new Database(dbPath);
-
-    const existingContents = db.prepare(`
-      SELECT * FROM devicecontent WHERE deviceId = ?
-    `).all(deviceId);
+    const existingContents = await queryAll(
+      `SELECT * FROM devicecontent WHERE deviceId = ?`,
+      [deviceId]
+    );
 
     const newContentId = randomUUID();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await execute(`
       INSERT INTO devicecontent (
-        id, deviceId, type, url, duration, autoplay, loop, muted, alt, "order", active, createdAt, updatedAt
+        id, deviceId, type, url, duration, autoplay, loop, muted, alt, \`order\`, active, createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       newContentId,
       deviceId,
       type,
@@ -92,10 +89,9 @@ export async function POST(req: Request) {
       1,
       now,
       now
-    );
+    ]);
 
-    const newContent = db.prepare('SELECT * FROM devicecontent WHERE id = ?').get(newContentId);
-    db.close();
+    const newContent = await queryOne('SELECT * FROM devicecontent WHERE id = ?', [newContentId]);
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
     if (broadcastContentUpdateToDevice) {

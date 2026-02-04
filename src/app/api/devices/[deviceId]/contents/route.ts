@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, queryAll } from '@/lib/db';
 
 // UUID 형식인지 확인하는 함수
 function isUUID(str: string): boolean {
@@ -11,12 +8,12 @@ function isUUID(str: string): boolean {
 }
 
 // deviceId 또는 alias로 실제 deviceId 조회
-function getDeviceId(db: Database.Database, deviceIdOrAlias: string): string | null {
+async function getDeviceId(deviceIdOrAlias: string): Promise<string | null> {
   if (isUUID(deviceIdOrAlias)) {
-    const device = db.prepare('SELECT id FROM device WHERE id = ?').get(deviceIdOrAlias) as any;
+    const device = await queryOne('SELECT id FROM device WHERE id = ?', [deviceIdOrAlias]) as any;
     return device?.id || null;
   }
-  const device = db.prepare('SELECT id FROM device WHERE alias = ?').get(deviceIdOrAlias) as any;
+  const device = await queryOne('SELECT id FROM device WHERE alias = ?', [deviceIdOrAlias]) as any;
   return device?.id || null;
 }
 
@@ -26,12 +23,10 @@ export async function GET(
 ) {
   try {
     const { deviceId: deviceIdOrAlias } = await params;
-    const db = new Database(dbPath);
 
     // alias인 경우 실제 deviceId로 변환
-    const deviceId = getDeviceId(db, deviceIdOrAlias);
+    const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -39,13 +34,11 @@ export async function GET(
     }
 
     // 데이터베이스에서 디바이스별 콘텐츠 목록 조회
-    const deviceContents = db.prepare(`
+    const deviceContents = await queryAll(`
       SELECT * FROM devicecontent
       WHERE deviceId = ? AND active = 1
-      ORDER BY "order" ASC
-    `).all(deviceId) as any[];
-
-    db.close();
+      ORDER BY \`order\` ASC
+    `, [deviceId]) as any[];
 
     // 복합형 콘텐츠의 metadata를 elements로 파싱
     const processedContents = deviceContents.map(content => {

@@ -2450,9 +2450,11 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   ) : (
                     <button
                       onClick={() => {
-                        const newDuration = prompt(`재생 시간을 입력하세요 (밀리초, 현재: ${content.duration}ms):`, String(content.duration));
-                        if (newDuration && !isNaN(Number(newDuration))) {
-                          handleUpdateDuration(content.id, Number(newDuration));
+                        const currentSeconds = content.duration / 1000;
+                        const hint = content.type === 'video' ? ' (0 입력 시 동영상 끝까지 재생)' : '';
+                        const newSeconds = prompt(`재생 시간을 초 단위로 입력하세요${hint}\n현재: ${currentSeconds}초`, String(currentSeconds));
+                        if (newSeconds !== null && !isNaN(Number(newSeconds))) {
+                          handleUpdateDuration(content.id, Number(newSeconds) * 1000);
                         }
                       }}
                       className="text-blue-600 hover:text-blue-800"

@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 // WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
 let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
@@ -17,13 +14,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
   const { contentId, deviceId } = await params;
   try {
     const data = await req.json();
-    const db = new Database(dbPath);
 
     // 기존 콘텐츠 가져오기
-    const existingContent = db.prepare('SELECT * FROM devicecontent WHERE id = ?').get(contentId) as any;
+    const existingContent = await queryOne('SELECT * FROM devicecontent WHERE id = ?', [contentId]) as any;
 
     if (!existingContent) {
-      db.close();
       return NextResponse.json({ error: '콘텐츠를 찾을 수 없습니다' }, { status: 404 });
     }
 
@@ -32,13 +27,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
     // 타입별로 업데이트 처리
     if (existingContent.type === 'text') {
       // 텍스트 콘텐츠 수정
-      db.prepare(`
+      await execute(`
         UPDATE devicecontent
         SET text = ?, duration = ?, fontSize = ?, fontColor = ?, backgroundColor = ?,
             scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
             updatedAt = ?
         WHERE id = ?
-      `).run(
+      `, [
         data.text,
         data.duration,
         data.fontSize,
@@ -53,16 +48,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         data.endTime || null,
         now,
         contentId
-      );
+      ]);
     } else if (existingContent.type === 'mixed') {
       // 복합형 콘텐츠 수정 (metadata 업데이트)
-      db.prepare(`
+      await execute(`
         UPDATE devicecontent
         SET metadata = ?,
             scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
             updatedAt = ?
         WHERE id = ?
-      `).run(
+      `, [
         data.metadata,
         data.scheduleType || 'always',
         data.specificDate || null,
@@ -73,16 +68,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         data.endTime || null,
         now,
         contentId
-      );
+      ]);
     } else if (existingContent.type === 'split_layout') {
       // 분할 레이아웃 콘텐츠 수정 (text, duration, metadata 업데이트)
-      db.prepare(`
+      await execute(`
         UPDATE devicecontent
         SET text = ?, duration = ?, metadata = ?,
             scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
             updatedAt = ?
         WHERE id = ?
-      `).run(
+      `, [
         data.text,
         data.duration,
         data.metadata,
@@ -95,16 +90,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         data.endTime || null,
         now,
         contentId
-      );
+      ]);
     } else if (existingContent.type === 'video' && existingContent.url?.startsWith('youtube:')) {
       // 유튜브 콘텐츠 수정 (metadata만 수정 가능)
-      db.prepare(`
+      await execute(`
         UPDATE devicecontent
         SET metadata = ?,
             scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
             updatedAt = ?
         WHERE id = ?
-      `).run(
+      `, [
         data.metadata,
         data.scheduleType || 'always',
         data.specificDate || null,
@@ -115,17 +110,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         data.endTime || null,
         now,
         contentId
-      );
+      ]);
     } else if (existingContent.type === 'video' || existingContent.type === 'image') {
       // 파일 기반 콘텐츠는 duration만 수정 가능
-      db.prepare(`
+      await execute(`
         UPDATE devicecontent
         SET duration = ?,
             scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
             updatedAt = ?
         WHERE id = ?
-      `).run(
-        data.duration || existingContent.duration,
+      `, [
+        data.duration !== undefined ? data.duration : existingContent.duration,
         data.scheduleType || 'always',
         data.specificDate || null,
         data.daysOfWeek || null,
@@ -135,11 +130,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         data.endTime || null,
         now,
         contentId
-      );
+      ]);
     }
 
-    const updatedContent = db.prepare('SELECT * FROM devicecontent WHERE id = ?').get(contentId);
-    db.close();
+    const updatedContent = await queryOne('SELECT * FROM devicecontent WHERE id = ?', [contentId]);
 
     // 콘텐츠 업데이트 후 해당 디바이스에 WebSocket 알림 전송
     if (broadcastContentUpdateToDevice) {
@@ -159,12 +153,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
 export async function DELETE(_req: Request, { params }: { params: Promise<{ deviceId: string, contentId: string }> }) {
   const { contentId, deviceId } = await params;
   try {
-    const db = new Database(dbPath);
-
     // deviceId도 where에 포함시켜서 보안 강화
-    db.prepare('DELETE FROM devicecontent WHERE id = ?').run(contentId);
-
-    db.close();
+    await execute('DELETE FROM devicecontent WHERE id = ?', [contentId]);
 
     // 콘텐츠 삭제 후 해당 디바이스에 WebSocket 알림 전송
     if (broadcastContentUpdateToDevice) {

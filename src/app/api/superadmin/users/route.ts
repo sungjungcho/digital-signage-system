@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryAll, queryOne } from '@/lib/db';
 
 // 슈퍼관리자 권한 확인
 async function checkSuperAdmin(): Promise<boolean> {
@@ -22,28 +19,27 @@ export async function GET() {
       );
     }
 
-    const db = new Database(dbPath);
-
     // 비밀번호 해시 제외하고 조회
-    const users = db.prepare(`
+    const users = await queryAll(`
       SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users
       ORDER BY CASE WHEN role = 'superadmin' THEN 0 ELSE 1 END, created_at DESC
-    `).all();
+    `);
 
     // 각 사용자의 디바이스 수 조회
-    const usersWithDeviceCount = users.map((user: any) => {
-      const deviceCount = db.prepare(
-        'SELECT COUNT(*) as count FROM device WHERE user_id = ?'
-      ).get(user.id) as { count: number };
+    const usersWithDeviceCount = await Promise.all(
+      users.map(async (user: any) => {
+        const deviceCount = await queryOne(
+          'SELECT COUNT(*) as count FROM device WHERE user_id = ?',
+          [user.id]
+        ) as { count: number };
 
-      return {
-        ...user,
-        deviceCount: deviceCount.count,
-      };
-    });
-
-    db.close();
+        return {
+          ...user,
+          deviceCount: deviceCount.count,
+        };
+      })
+    );
 
     return NextResponse.json(usersWithDeviceCount);
   } catch (error) {

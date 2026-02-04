@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
 import { randomUUID } from 'crypto';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, queryAll, execute } from '@/lib/db';
 
 // 공지사항 목록 조회
 export async function GET(req: Request) {
@@ -11,8 +8,6 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     const search = searchParams.get('search');
-
-    const db = new Database(dbPath);
 
     let query = 'SELECT * FROM notice WHERE 1=1';
     const params: any[] = [];
@@ -29,8 +24,7 @@ export async function GET(req: Request) {
 
     query += ' ORDER BY favorite DESC, lastUsedAt DESC, createdAt DESC';
 
-    const notices = db.prepare(query).all(...params);
-    db.close();
+    const notices = await queryAll(query, params);
 
     return NextResponse.json(notices);
   } catch (error) {
@@ -54,15 +48,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const db = new Database(dbPath);
     const noticeId = randomUUID();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await execute(`
       INSERT INTO notice (
         id, title, content, category, favorite, usageCount, createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       noticeId,
       title,
       content,
@@ -71,10 +64,9 @@ export async function POST(req: Request) {
       0,
       now,
       now
-    );
+    ]);
 
-    const newNotice = db.prepare('SELECT * FROM notice WHERE id = ?').get(noticeId);
-    db.close();
+    const newNotice = await queryOne('SELECT * FROM notice WHERE id = ?', [noticeId]);
 
     return NextResponse.json(newNotice);
   } catch (error) {

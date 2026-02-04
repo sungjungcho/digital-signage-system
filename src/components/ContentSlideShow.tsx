@@ -30,8 +30,14 @@ export default function ContentSlideShow({ contents, deviceId = '' }: ContentSli
 
   useEffect(() => {
     if (!displayContents.length) return;
-    
+
     const currentContent = displayContents[currentIndex];
+
+    // 동영상이고 duration이 0이면 재생 완료까지 대기 (타이머 사용 안 함)
+    if (currentContent.type === 'video' && currentContent.duration === 0) {
+      return;
+    }
+
     const timer = setTimeout(moveToNextContent, currentContent.duration);
 
     return () => clearTimeout(timer);
@@ -56,7 +62,7 @@ export default function ContentSlideShow({ contents, deviceId = '' }: ContentSli
       <div className="w-full h-full flex">
         {/* 좌측: 일반 콘텐츠 순환 (2/3 영역) */}
         <div className="w-2/3 h-full">
-          <DisplayContent content={displayContents[currentIndex]} deviceId={deviceId} />
+          <DisplayContent content={displayContents[currentIndex]} deviceId={deviceId} onVideoEnd={moveToNextContent} />
         </div>
 
         {/* 우측: 날짜/시간 + 대기환자 명단 (1/3 영역) */}
@@ -70,7 +76,7 @@ export default function ContentSlideShow({ contents, deviceId = '' }: ContentSli
 
   return (
     <div className="w-full h-full">
-      <DisplayContent content={displayContents[currentIndex]} deviceId={deviceId} />
+      <DisplayContent content={displayContents[currentIndex]} deviceId={deviceId} onVideoEnd={moveToNextContent} />
     </div>
   );
 }

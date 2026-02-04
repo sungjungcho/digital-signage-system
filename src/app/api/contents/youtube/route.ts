@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 // WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
 let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
@@ -77,11 +74,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = new Database(dbPath);
-
     // 현재 콘텐츠 개수 조회 (order 값 결정용)
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM devicecontent WHERE deviceId = ?');
-    const { count } = countStmt.get(deviceId) as { count: number };
+    const countResult = await queryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM devicecontent WHERE deviceId = ?',
+      [deviceId]
+    );
+    const count = countResult?.count ?? 0;
 
     // 유튜브 정보를 JSON으로 저장
     const metadata = JSON.stringify({
@@ -97,16 +95,14 @@ export async function POST(request: NextRequest) {
     const contentId = uuidv4();
 
     // 콘텐츠 저장 (url 필드에 유튜브 정보 저장)
-    const stmt = db.prepare(`
+    await execute(`
       INSERT INTO devicecontent (
-        id, deviceId, type, url, duration, metadata, "order", active,
+        id, deviceId, type, url, duration, metadata, \`order\`, active,
         scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime,
         createdAt, updatedAt
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       contentId,
       deviceId,
       'video',
@@ -124,9 +120,7 @@ export async function POST(request: NextRequest) {
       endTime || null,
       now,
       now
-    );
-
-    db.close();
+    ]);
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
     if (broadcastContentUpdateToDevice) {

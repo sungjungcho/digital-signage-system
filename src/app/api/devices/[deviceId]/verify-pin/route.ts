@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne } from '@/lib/db';
 
 // UUID 형식인지 확인하는 함수
 function isUUID(str: string): boolean {
@@ -11,11 +8,11 @@ function isUUID(str: string): boolean {
 }
 
 // deviceId 또는 alias로 디바이스 조회
-function findDevice(db: Database.Database, deviceIdOrAlias: string) {
+async function findDevice(deviceIdOrAlias: string) {
   if (isUUID(deviceIdOrAlias)) {
-    return db.prepare('SELECT * FROM device WHERE id = ?').get(deviceIdOrAlias);
+    return queryOne('SELECT * FROM device WHERE id = ?', [deviceIdOrAlias]);
   }
-  return db.prepare('SELECT * FROM device WHERE alias = ?').get(deviceIdOrAlias);
+  return queryOne('SELECT * FROM device WHERE alias = ?', [deviceIdOrAlias]);
 }
 
 export async function POST(
@@ -33,9 +30,7 @@ export async function POST(
       );
     }
 
-    const db = new Database(dbPath);
-    const device = findDevice(db, deviceId) as any;
-    db.close();
+    const device = await findDevice(deviceId) as any;
 
     if (!device) {
       return NextResponse.json(

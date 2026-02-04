@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 export async function POST(
   req: Request,
@@ -12,19 +9,15 @@ export async function POST(
     const { deviceId } = await params;
     const { status, lastConnected } = await req.json();
 
-    const db = new Database(dbPath);
-
     // 디바이스 상태 업데이트
     const lastConnectedDate = lastConnected ? new Date(lastConnected).toISOString() : null;
 
-    db.prepare(`
-      UPDATE device
-      SET status = ?, lastConnected = ?, updatedAt = ?
-      WHERE id = ?
-    `).run(status, lastConnectedDate, new Date().toISOString(), deviceId);
+    await execute(
+      'UPDATE device SET status = ?, lastConnected = ?, updatedAt = ? WHERE id = ?',
+      [status, lastConnectedDate, new Date().toISOString(), deviceId]
+    );
 
-    const updatedDevice = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
-    db.close();
+    const updatedDevice = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
 
     return NextResponse.json(updatedDevice);
   } catch (error) {

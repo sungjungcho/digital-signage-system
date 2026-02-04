@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, queryAll, execute } from '@/lib/db';
 
 // 슈퍼관리자 권한 확인
 async function checkSuperAdmin(): Promise<boolean> {
@@ -26,15 +23,13 @@ export async function GET(
     }
 
     const { userId } = await params;
-    const db = new Database(dbPath);
 
-    const user = db.prepare(`
+    const user = await queryOne(`
       SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users WHERE id = ?
-    `).get(userId);
+    `, [userId]);
 
     if (!user) {
-      db.close();
       return NextResponse.json(
         { error: '사용자를 찾을 수 없습니다.' },
         { status: 404 }
@@ -42,11 +37,10 @@ export async function GET(
     }
 
     // 사용자의 디바이스 목록
-    const devices = db.prepare(
-      'SELECT id, name, location, alias FROM device WHERE user_id = ?'
-    ).all(userId);
-
-    db.close();
+    const devices = await queryAll(
+      'SELECT id, name, location, alias FROM device WHERE user_id = ?',
+      [userId]
+    );
 
     return NextResponse.json({ ...user, devices });
   } catch (error) {
@@ -73,12 +67,10 @@ export async function PATCH(
 
     const { userId } = await params;
     const data = await req.json();
-    const db = new Database(dbPath);
 
     // 사용자 존재 확인
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    const user = await queryOne('SELECT * FROM users WHERE id = ?', [userId]) as any;
     if (!user) {
-      db.close();
       return NextResponse.json(
         { error: '사용자를 찾을 수 없습니다.' },
         { status: 404 }
@@ -87,7 +79,6 @@ export async function PATCH(
 
     // 유효한 상태 값 확인
     if (data.status && !['pending', 'approved', 'rejected'].includes(data.status)) {
-      db.close();
       return NextResponse.json(
         { error: '유효하지 않은 상태 값입니다.' },
         { status: 400 }
@@ -96,7 +87,6 @@ export async function PATCH(
 
     // 유효한 역할 값 확인
     if (data.role && !['user', 'superadmin'].includes(data.role)) {
-      db.close();
       return NextResponse.json(
         { error: '유효하지 않은 역할 값입니다.' },
         { status: 400 }
@@ -107,7 +97,6 @@ export async function PATCH(
     const headersList = await headers();
     const currentUserId = headersList.get('x-user-id');
     if (currentUserId === userId && data.role === 'user') {
-      db.close();
       return NextResponse.json(
         { error: '자신의 슈퍼관리자 권한을 해제할 수 없습니다.' },
         { status: 400 }
@@ -116,7 +105,6 @@ export async function PATCH(
 
     // max_devices 유효성 검사
     if (data.max_devices !== undefined && (typeof data.max_devices !== 'number' || data.max_devices < 0)) {
-      db.close();
       return NextResponse.json(
         { error: '유효하지 않은 디바이스 한도 값입니다.' },
         { status: 400 }
@@ -125,26 +113,23 @@ export async function PATCH(
 
     // 업데이트
     const now = new Date().toISOString();
-    const stmt = db.prepare(`
+
+    await execute(`
       UPDATE users
       SET status = ?, role = ?, max_devices = ?, updated_at = ?
       WHERE id = ?
-    `);
-
-    stmt.run(
+    `, [
       data.status || user.status,
       data.role || user.role,
       data.max_devices !== undefined ? data.max_devices : user.max_devices,
       now,
       userId
-    );
+    ]);
 
-    const updatedUser = db.prepare(`
+    const updatedUser = await queryOne(`
       SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users WHERE id = ?
-    `).get(userId);
-
-    db.close();
+    `, [userId]);
 
     return NextResponse.json({
       message: '사용자 정보가 업데이트되었습니다.',
@@ -184,12 +169,9 @@ export async function DELETE(
       );
     }
 
-    const db = new Database(dbPath);
-
     // 사용자 존재 확인
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    const user = await queryOne('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user) {
-      db.close();
       return NextResponse.json(
         { error: '사용자를 찾을 수 없습니다.' },
         { status: 404 }
@@ -197,24 +179,23 @@ export async function DELETE(
     }
 
     // 사용자의 디바이스를 슈퍼관리자에게 이전
-    const superadmin = db.prepare(
-      "SELECT id FROM users WHERE role = 'superadmin' AND id != ? LIMIT 1"
-    ).get(userId) as { id: string } | undefined;
+    const superadmin = await queryOne(
+      "SELECT id FROM users WHERE role = 'superadmin' AND id != ? LIMIT 1",
+      [userId]
+    ) as { id: string } | undefined;
 
     if (superadmin) {
-      db.prepare('UPDATE device SET user_id = ? WHERE user_id = ?').run(superadmin.id, userId);
+      await execute('UPDATE device SET user_id = ? WHERE user_id = ?', [superadmin.id, userId]);
     } else {
       // 다른 슈퍼관리자가 없으면 user_id를 null로 설정
-      db.prepare('UPDATE device SET user_id = NULL WHERE user_id = ?').run(userId);
+      await execute('UPDATE device SET user_id = NULL WHERE user_id = ?', [userId]);
     }
 
     // 사용자 세션 삭제
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    await execute('DELETE FROM sessions WHERE user_id = ?', [userId]);
 
     // 사용자 삭제
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-
-    db.close();
+    await execute('DELETE FROM users WHERE id = ?', [userId]);
 
     return NextResponse.json({
       message: '사용자가 삭제되었습니다.',

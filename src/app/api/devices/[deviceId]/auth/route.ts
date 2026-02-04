@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
 import { randomUUID, createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { queryOne, queryAll, execute } from '@/lib/db';
 
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
 const BCRYPT_ROUNDS = 12; // bcrypt 해싱 라운드 (10-12 권장)
 const SESSION_EXPIRY_DAYS = 7; // 세션 만료 기간 (일)
 const SESSION_EXPIRY_MS = SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
 // 세션 테이블에 expires_at 컬럼 추가 (마이그레이션)
-function ensureExpiresAtColumn(db: Database.Database) {
+async function ensureExpiresAtColumn() {
   try {
-    const tableInfo = db.prepare("PRAGMA table_info(device_sessions)").all() as any[];
-    const hasExpiresAt = tableInfo.some((col: any) => col.name === 'expires_at');
-    if (!hasExpiresAt) {
-      db.prepare("ALTER TABLE device_sessions ADD COLUMN expires_at TEXT").run();
+    const column = await queryOne(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'device_sessions' AND COLUMN_NAME = 'expires_at'`
+    );
+    if (!column) {
+      await execute("ALTER TABLE device_sessions ADD COLUMN expires_at TEXT");
     }
   } catch (error) {
     console.error('expires_at 컬럼 추가 오류:', error);
@@ -29,11 +29,11 @@ function isUUID(str: string): boolean {
 }
 
 // deviceId 또는 alias로 디바이스 정보 조회
-function findDevice(db: Database.Database, deviceIdOrAlias: string) {
+async function findDevice(deviceIdOrAlias: string) {
   if (isUUID(deviceIdOrAlias)) {
-    return db.prepare('SELECT id, alias FROM device WHERE id = ?').get(deviceIdOrAlias) as any;
+    return await queryOne('SELECT id, alias FROM device WHERE id = ?', [deviceIdOrAlias]);
   }
-  return db.prepare('SELECT id, alias FROM device WHERE alias = ?').get(deviceIdOrAlias) as any;
+  return await queryOne('SELECT id, alias FROM device WHERE alias = ?', [deviceIdOrAlias]);
 }
 
 // 기존 SHA-256 해싱 함수 (마이그레이션용)
@@ -76,12 +76,9 @@ export async function POST(
       );
     }
 
-    const db = new Database(dbPath);
-
     // 디바이스 존재 확인 (id 또는 alias로)
-    const device = findDevice(db, deviceIdOrAlias);
+    const device = await findDevice(deviceIdOrAlias);
     if (!device) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -91,12 +88,12 @@ export async function POST(
     const deviceId = device.id;
 
     // 계정 확인
-    const account = db.prepare(
-      'SELECT * FROM device_accounts WHERE device_id = ? AND username = ?'
-    ).get(deviceId, username) as any;
+    const account = await queryOne(
+      'SELECT * FROM device_accounts WHERE device_id = ? AND username = ?',
+      [deviceId, username]
+    );
 
     if (!account) {
-      db.close();
       return NextResponse.json(
         { error: '아이디 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401 }
@@ -106,7 +103,6 @@ export async function POST(
     // 비밀번호 확인 (bcrypt 또는 SHA-256)
     const isValidPassword = await verifyPassword(password, account.password_hash);
     if (!isValidPassword) {
-      db.close();
       return NextResponse.json(
         { error: '아이디 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401 }
@@ -116,25 +112,24 @@ export async function POST(
     // SHA-256 해시인 경우 bcrypt로 마이그레이션
     if (!isBcryptHash(account.password_hash)) {
       const newHash = await hashPassword(password);
-      db.prepare('UPDATE device_accounts SET password_hash = ? WHERE id = ?').run(newHash, account.id);
+      await execute('UPDATE device_accounts SET password_hash = ? WHERE id = ?', [newHash, account.id]);
     }
 
     // expires_at 컬럼 마이그레이션 확인
-    ensureExpiresAtColumn(db);
+    await ensureExpiresAtColumn();
 
     // 기존 세션 삭제 후 새 세션 생성
-    db.prepare('DELETE FROM device_sessions WHERE device_id = ?').run(deviceId);
+    await execute('DELETE FROM device_sessions WHERE device_id = ?', [deviceId]);
 
     const sessionId = randomUUID();
     const token = randomUUID();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRY_MS);
 
-    db.prepare(
-      'INSERT INTO device_sessions (id, device_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(sessionId, deviceId, token, now.toISOString(), expiresAt.toISOString());
-
-    db.close();
+    await execute(
+      'INSERT INTO device_sessions (id, device_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)',
+      [sessionId, deviceId, token, now.toISOString(), expiresAt.toISOString()]
+    );
 
     // 응답 생성
     const response = NextResponse.json({
@@ -170,12 +165,10 @@ export async function GET(
 ) {
   try {
     const { deviceId: deviceIdOrAlias } = await params;
-    const db = new Database(dbPath);
 
     // 디바이스 존재 확인 (id 또는 alias로)
-    const device = findDevice(db, deviceIdOrAlias);
+    const device = await findDevice(deviceIdOrAlias);
     if (!device) {
-      db.close();
       return NextResponse.json(
         { valid: false, error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -190,19 +183,18 @@ export async function GET(
     const token = headerToken || cookieToken;
 
     if (!token) {
-      db.close();
       return NextResponse.json(
         { valid: false, error: '토큰이 필요합니다.' },
         { status: 401 }
       );
     }
 
-    const session = db.prepare(
-      'SELECT * FROM device_sessions WHERE device_id = ? AND token = ?'
-    ).get(deviceId, token) as any;
+    const session = await queryOne(
+      'SELECT * FROM device_sessions WHERE device_id = ? AND token = ?',
+      [deviceId, token]
+    );
 
     if (!session) {
-      db.close();
       return NextResponse.json(
         { valid: false, error: '유효하지 않은 토큰입니다.' },
         { status: 401 }
@@ -214,8 +206,7 @@ export async function GET(
       const expiresAt = new Date(session.expires_at);
       if (expiresAt < new Date()) {
         // 만료된 세션 삭제
-        db.prepare('DELETE FROM device_sessions WHERE id = ?').run(session.id);
-        db.close();
+        await execute('DELETE FROM device_sessions WHERE id = ?', [session.id]);
         return NextResponse.json(
           { valid: false, error: '세션이 만료되었습니다. 다시 로그인해주세요.' },
           { status: 401 }
@@ -223,7 +214,6 @@ export async function GET(
       }
     }
 
-    db.close();
     return NextResponse.json({ valid: true });
   } catch (error) {
     console.error('토큰 검증 오류:', error);
@@ -243,12 +233,9 @@ export async function DELETE(
     const { deviceId: deviceIdOrAlias } = await params;
     const token = req.headers.get('Authorization')?.replace('Bearer ', '');
 
-    const db = new Database(dbPath);
-
     // 디바이스 존재 확인 (id 또는 alias로)
-    const device = findDevice(db, deviceIdOrAlias);
+    const device = await findDevice(deviceIdOrAlias);
     if (!device) {
-      db.close();
       return NextResponse.json(
         { error: '디바이스를 찾을 수 없습니다.' },
         { status: 404 }
@@ -258,13 +245,11 @@ export async function DELETE(
     const deviceId = device.id;
 
     if (token) {
-      db.prepare('DELETE FROM device_sessions WHERE device_id = ? AND token = ?').run(deviceId, token);
+      await execute('DELETE FROM device_sessions WHERE device_id = ? AND token = ?', [deviceId, token]);
     } else {
       // 관리자용: 모든 세션 삭제
-      db.prepare('DELETE FROM device_sessions WHERE device_id = ?').run(deviceId);
+      await execute('DELETE FROM device_sessions WHERE device_id = ?', [deviceId]);
     }
-
-    db.close();
 
     return NextResponse.json({ success: true, message: '로그아웃 성공' });
   } catch (error) {

@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
 import { randomUUID } from 'crypto';
 import { broadcastContentUpdateToDevice } from '@/lib/wsServer';
-
-const dbPath = path.join(process.cwd(), 'data', 'signage.db');
+import { queryOne, execute } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,13 +15,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '왼쪽에 표시할 콘텐츠가 필요합니다' }, { status: 400 });
     }
 
-    const db = new Database(dbPath);
-
     // 디바이스 확인
-    const device = db.prepare('SELECT * FROM device WHERE id = ?').get(deviceId);
+    const device = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
 
     if (!device) {
-      db.close();
       return NextResponse.json({ error: '디바이스를 찾을 수 없습니다' }, { status: 404 });
     }
 
@@ -38,23 +32,24 @@ export async function POST(request: NextRequest) {
     }, 0);
 
     // 최대 order 값 구하기
-    const maxOrderResult = db.prepare(`
-      SELECT MAX("order") as maxOrder FROM devicecontent WHERE deviceId = ?
-    `).get(deviceId) as { maxOrder: number | null };
+    const maxOrderResult = await queryOne<{ maxOrder: number | null }>(
+      'SELECT MAX(`order`) as maxOrder FROM devicecontent WHERE deviceId = ?',
+      [deviceId]
+    );
 
-    const maxOrder = maxOrderResult.maxOrder !== null ? maxOrderResult.maxOrder + 1 : 0;
+    const maxOrder = maxOrderResult?.maxOrder !== null ? (maxOrderResult?.maxOrder ?? -1) + 1 : 0;
 
     const newContentId = randomUUID();
     const now = new Date().toISOString();
     const metadata = JSON.stringify({ showNotices });
 
-    db.prepare(`
+    await execute(`
       INSERT INTO devicecontent (
-        id, deviceId, type, text, duration, metadata, "order", active,
+        id, deviceId, type, text, duration, metadata, \`order\`, active,
         scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime,
         createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       newContentId,
       deviceId,
       'split_layout',
@@ -72,10 +67,9 @@ export async function POST(request: NextRequest) {
       endTime || null,
       now,
       now
-    );
+    ]);
 
-    const newContent = db.prepare('SELECT * FROM devicecontent WHERE id = ?').get(newContentId);
-    db.close();
+    const newContent = await queryOne('SELECT * FROM devicecontent WHERE id = ?', [newContentId]);
 
     // 콘텐츠 추가 후 해당 디바이스에 WebSocket 알림 전송
     setTimeout(() => {

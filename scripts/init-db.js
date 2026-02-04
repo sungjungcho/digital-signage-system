@@ -1,9 +1,6 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const mysql = require('mysql2/promise');
 const crypto = require('crypto');
 
-// bcryptjs는 init 스크립트에서 직접 사용
 let bcrypt;
 try {
   bcrypt = require('bcryptjs');
@@ -12,276 +9,281 @@ try {
   process.exit(1);
 }
 
-// 데이터 디렉토리 생성
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, 'signage.db');
-const db = new Database(dbPath);
-
-console.log('데이터베이스 초기화 중...');
-
-// 기존 테이블 확인
-function tableExists(tableName) {
-  const result = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(tableName);
-  return !!result;
-}
-
-function columnExists(tableName, columnName) {
-  try {
-    const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
-    return tableInfo.some(col => col.name === columnName);
-  } catch {
-    return false;
-  }
-}
-
-// ============================
-// 1. users 테이블 생성
-// ============================
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user',
-    status TEXT NOT NULL DEFAULT 'pending',
-    name TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-  CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-  CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
-`);
-console.log('✅ users 테이블 생성/확인 완료');
-
-// max_devices 컬럼 추가 (일반 사용자 디바이스 등록 제한)
-if (!columnExists('users', 'max_devices')) {
-  db.exec(`ALTER TABLE users ADD COLUMN max_devices INTEGER DEFAULT 3`);
-  // superadmin은 무제한 (999)
-  db.exec(`UPDATE users SET max_devices = 999 WHERE role = 'superadmin'`);
-  console.log('✅ users 테이블에 max_devices 컬럼 추가됨 (기본값: 3)');
-}
-
-// ============================
-// 2. sessions 테이블 생성
-// ============================
-db.exec(`
-  CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    token TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
-  CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-`);
-console.log('✅ sessions 테이블 생성/확인 완료');
-
-// ============================
-// 3. device 테이블 수정 (user_id, pin_code 컬럼 추가)
-// ============================
-db.exec(`
-  CREATE TABLE IF NOT EXISTS device (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    location TEXT NOT NULL,
-    status TEXT DEFAULT 'offline',
-    lastConnected TEXT,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
-  );
-`);
-
-// alias 컬럼 추가 (이전 마이그레이션)
-if (!columnExists('device', 'alias')) {
-  db.exec(`ALTER TABLE device ADD COLUMN alias TEXT`);
-  console.log('✅ device 테이블에 alias 컬럼 추가됨');
-}
-
-// user_id 컬럼 추가
-if (!columnExists('device', 'user_id')) {
-  db.exec(`ALTER TABLE device ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE SET NULL`);
-  console.log('✅ device 테이블에 user_id 컬럼 추가됨');
-}
-
-// pin_code 컬럼 추가
-if (!columnExists('device', 'pin_code')) {
-  db.exec(`ALTER TABLE device ADD COLUMN pin_code TEXT`);
-  // 기존 디바이스에 기본 PIN 설정
-  db.exec(`UPDATE device SET pin_code = '0000' WHERE pin_code IS NULL`);
-  console.log('✅ device 테이블에 pin_code 컬럼 추가됨 (기본값: 0000)');
-}
-
-// device user_id 인덱스 생성
+// .env 파일 로드
 try {
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_device_user_id ON device(user_id)`);
-} catch (e) {
-  // 인덱스 이미 존재하는 경우 무시
+  require('dotenv').config();
+} catch {
+  // dotenv 없으면 환경변수 직접 사용
 }
 
-// ============================
-// 4. 기타 테이블 (변경 없음)
-// ============================
-db.exec(`
-  CREATE TABLE IF NOT EXISTS devicecontent (
-    id TEXT PRIMARY KEY,
-    deviceId TEXT NOT NULL,
-    type TEXT NOT NULL,
-    url TEXT,
-    text TEXT,
-    duration INTEGER NOT NULL,
-    fontSize TEXT,
-    fontColor TEXT,
-    backgroundColor TEXT,
-    alt TEXT,
-    autoplay INTEGER DEFAULT 0,
-    loop INTEGER DEFAULT 0,
-    muted INTEGER DEFAULT 1,
-    metadata TEXT,
-    "order" INTEGER NOT NULL,
-    active INTEGER DEFAULT 1,
-    scheduleType TEXT DEFAULT 'always',
-    specificDate TEXT,
-    daysOfWeek TEXT,
-    startDate TEXT,
-    endDate TEXT,
-    startTime TEXT,
-    endTime TEXT,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL,
-    FOREIGN KEY (deviceId) REFERENCES device(id) ON DELETE CASCADE
-  );
+async function initDB() {
+  const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    user: process.env.DB_USER || 'signage',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'signage_db',
+    waitForConnections: true,
+    connectionLimit: 5,
+  });
 
-  CREATE INDEX IF NOT EXISTS idx_devicecontent_deviceId ON devicecontent(deviceId);
+  console.log('데이터베이스 초기화 중...');
 
-  CREATE TABLE IF NOT EXISTS content_schedule (
-    id TEXT PRIMARY KEY,
-    deviceId TEXT NOT NULL,
-    name TEXT NOT NULL,
-    scheduleType TEXT NOT NULL,
-    specificDate TEXT,
-    daysOfWeek TEXT,
-    startDate TEXT,
-    endDate TEXT,
-    priority INTEGER DEFAULT 0,
-    active INTEGER DEFAULT 1,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL,
-    FOREIGN KEY (deviceId) REFERENCES device(id) ON DELETE CASCADE
-  );
+  const dbName = process.env.DB_NAME || 'signage_db';
 
-  CREATE TABLE IF NOT EXISTS time_slot (
-    id TEXT PRIMARY KEY,
-    scheduleId TEXT NOT NULL,
-    startTime TEXT NOT NULL,
-    endTime TEXT NOT NULL,
-    contentIds TEXT NOT NULL,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL,
-    FOREIGN KEY (scheduleId) REFERENCES content_schedule(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_content_schedule_deviceId ON content_schedule(deviceId);
-  CREATE INDEX IF NOT EXISTS idx_time_slot_scheduleId ON time_slot(scheduleId);
-
-  CREATE TABLE IF NOT EXISTS notice (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    category TEXT,
-    favorite INTEGER DEFAULT 0,
-    lastUsedAt TEXT,
-    usageCount INTEGER DEFAULT 0,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_notice_category ON notice(category);
-  CREATE INDEX IF NOT EXISTS idx_notice_favorite ON notice(favorite);
-
-  -- 디바이스 추가 요청 테이블
-  CREATE TABLE IF NOT EXISTS device_requests (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    requested_count INTEGER NOT NULL,
-    current_max INTEGER NOT NULL,
-    reason TEXT,
-    status TEXT DEFAULT 'pending',
-    approved_count INTEGER,
-    approved_by TEXT,
-    approved_at TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_device_requests_user_id ON device_requests(user_id);
-  CREATE INDEX IF NOT EXISTS idx_device_requests_status ON device_requests(status);
-`);
-
-// ============================
-// 5. 기존 device_accounts, device_sessions 테이블 삭제
-// ============================
-if (tableExists('device_sessions')) {
-  db.exec(`DROP TABLE device_sessions`);
-  console.log('✅ device_sessions 테이블 삭제됨');
-}
-
-if (tableExists('device_accounts')) {
-  db.exec(`DROP TABLE device_accounts`);
-  console.log('✅ device_accounts 테이블 삭제됨');
-}
-
-// ============================
-// 6. 기본 superadmin 계정 생성
-// ============================
-const superadminExists = db.prepare("SELECT id FROM users WHERE role = 'superadmin'").get();
-
-if (!superadminExists) {
-  const superadminId = crypto.randomUUID();
-  const superadminPassword = process.env.SUPERADMIN_PASSWORD || 'admin1234';
-  const passwordHash = bcrypt.hashSync(superadminPassword, 12);
-  const now = new Date().toISOString();
-
-  db.prepare(`
-    INSERT INTO users (id, username, email, password_hash, role, status, name, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(superadminId, 'superadmin', null, passwordHash, 'superadmin', 'approved', '슈퍼관리자', now, now);
-
-  console.log('✅ 기본 superadmin 계정 생성됨');
-  console.log(`   - 아이디: superadmin`);
-  console.log(`   - 비밀번호: ${superadminPassword}`);
-  console.log('   ⚠️  프로덕션 배포 전 비밀번호를 변경하세요!');
-
-  // 기존 디바이스들을 superadmin에게 할당
-  const deviceCount = db.prepare(`UPDATE device SET user_id = ? WHERE user_id IS NULL`).run(superadminId);
-  if (deviceCount.changes > 0) {
-    console.log(`✅ 기존 디바이스 ${deviceCount.changes}개를 superadmin에게 할당됨`);
+  async function columnExists(tableName, columnName) {
+    const [rows] = await pool.execute(
+      'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+      [dbName, tableName, columnName]
+    );
+    return rows.length > 0;
   }
-} else {
-  console.log('✅ superadmin 계정이 이미 존재합니다.');
 
-  // 소유자 없는 디바이스가 있다면 superadmin에게 할당
-  const superadmin = db.prepare("SELECT id FROM users WHERE role = 'superadmin'").get();
-  if (superadmin) {
-    const deviceCount = db.prepare(`UPDATE device SET user_id = ? WHERE user_id IS NULL`).run(superadmin.id);
-    if (deviceCount.changes > 0) {
-      console.log(`✅ 소유자 없는 디바이스 ${deviceCount.changes}개를 superadmin에게 할당됨`);
+  async function tableExists(tableName) {
+    const [rows] = await pool.execute(
+      'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
+      [dbName, tableName]
+    );
+    return rows.length > 0;
+  }
+
+  // ============================
+  // 1. users 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id VARCHAR(36) PRIMARY KEY,
+      username VARCHAR(50) UNIQUE NOT NULL,
+      email VARCHAR(255) UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      role VARCHAR(20) NOT NULL DEFAULT 'user',
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      name VARCHAR(100),
+      max_devices INT DEFAULT 3,
+      created_at VARCHAR(30) NOT NULL,
+      updated_at VARCHAR(30) NOT NULL,
+      INDEX idx_users_username (username),
+      INDEX idx_users_role (role),
+      INDEX idx_users_status (status)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ users 테이블 생성/확인 완료');
+
+  // ============================
+  // 2. sessions 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL,
+      token VARCHAR(500) NOT NULL,
+      expires_at VARCHAR(30) NOT NULL,
+      created_at VARCHAR(30) NOT NULL,
+      INDEX idx_sessions_token (token(255)),
+      INDEX idx_sessions_user_id (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ sessions 테이블 생성/확인 완료');
+
+  // ============================
+  // 3. device 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device (
+      id VARCHAR(36) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      location VARCHAR(255) NOT NULL,
+      alias VARCHAR(100),
+      status VARCHAR(20) DEFAULT 'offline',
+      user_id VARCHAR(36),
+      pin_code VARCHAR(10),
+      lastConnected VARCHAR(30),
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_device_user_id (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ device 테이블 생성/확인 완료');
+
+  // ============================
+  // 4. devicecontent 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS devicecontent (
+      id VARCHAR(36) PRIMARY KEY,
+      deviceId VARCHAR(36) NOT NULL,
+      type VARCHAR(50) NOT NULL,
+      url TEXT,
+      text MEDIUMTEXT,
+      duration INT NOT NULL,
+      fontSize VARCHAR(20),
+      fontColor VARCHAR(20),
+      backgroundColor VARCHAR(20),
+      alt VARCHAR(255),
+      autoplay TINYINT(1) DEFAULT 0,
+      \`loop\` TINYINT(1) DEFAULT 0,
+      muted TINYINT(1) DEFAULT 1,
+      metadata MEDIUMTEXT,
+      \`order\` INT NOT NULL,
+      active TINYINT(1) DEFAULT 1,
+      scheduleType VARCHAR(20) DEFAULT 'always',
+      specificDate VARCHAR(30),
+      daysOfWeek VARCHAR(30),
+      startDate VARCHAR(30),
+      endDate VARCHAR(30),
+      startTime VARCHAR(10),
+      endTime VARCHAR(10),
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_devicecontent_deviceId (deviceId),
+      FOREIGN KEY (deviceId) REFERENCES device(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ devicecontent 테이블 생성/확인 완료');
+
+  // ============================
+  // 5. content_schedule 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS content_schedule (
+      id VARCHAR(36) PRIMARY KEY,
+      deviceId VARCHAR(36) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      scheduleType VARCHAR(50) NOT NULL,
+      specificDate VARCHAR(30),
+      daysOfWeek VARCHAR(30),
+      startDate VARCHAR(30),
+      endDate VARCHAR(30),
+      priority INT DEFAULT 0,
+      active TINYINT(1) DEFAULT 1,
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_content_schedule_deviceId (deviceId),
+      FOREIGN KEY (deviceId) REFERENCES device(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ content_schedule 테이블 생성/확인 완료');
+
+  // ============================
+  // 6. time_slot 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS time_slot (
+      id VARCHAR(36) PRIMARY KEY,
+      scheduleId VARCHAR(36) NOT NULL,
+      startTime VARCHAR(10) NOT NULL,
+      endTime VARCHAR(10) NOT NULL,
+      contentIds TEXT NOT NULL,
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_time_slot_scheduleId (scheduleId),
+      FOREIGN KEY (scheduleId) REFERENCES content_schedule(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ time_slot 테이블 생성/확인 완료');
+
+  // ============================
+  // 7. notice 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notice (
+      id VARCHAR(36) PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      category VARCHAR(50),
+      favorite TINYINT(1) DEFAULT 0,
+      lastUsedAt VARCHAR(30),
+      usageCount INT DEFAULT 0,
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_notice_category (category),
+      INDEX idx_notice_favorite (favorite)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ notice 테이블 생성/확인 완료');
+
+  // ============================
+  // 8. device_requests 테이블 생성
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device_requests (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL,
+      requested_count INT NOT NULL,
+      current_max INT NOT NULL,
+      reason TEXT,
+      status VARCHAR(20) DEFAULT 'pending',
+      approved_count INT,
+      approved_by VARCHAR(36),
+      approved_at VARCHAR(30),
+      created_at VARCHAR(30) NOT NULL,
+      updated_at VARCHAR(30) NOT NULL,
+      INDEX idx_device_requests_user_id (user_id),
+      INDEX idx_device_requests_status (status),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ device_requests 테이블 생성/확인 완료');
+
+  // ============================
+  // 9. 기존 device_accounts, device_sessions 테이블 삭제
+  // ============================
+  if (await tableExists('device_sessions')) {
+    await pool.query('DROP TABLE device_sessions');
+    console.log('✅ device_sessions 테이블 삭제됨');
+  }
+  if (await tableExists('device_accounts')) {
+    await pool.query('DROP TABLE device_accounts');
+    console.log('✅ device_accounts 테이블 삭제됨');
+  }
+
+  // ============================
+  // 10. 기본 superadmin 계정 생성
+  // ============================
+  const [superadminRows] = await pool.execute("SELECT id FROM users WHERE role = 'superadmin'");
+
+  if (superadminRows.length === 0) {
+    const superadminId = crypto.randomUUID();
+    const superadminPassword = process.env.SUPERADMIN_PASSWORD || 'admin1234';
+    const passwordHash = bcrypt.hashSync(superadminPassword, 12);
+    const now = new Date().toISOString();
+
+    await pool.execute(
+      'INSERT INTO users (id, username, email, password_hash, role, status, name, max_devices, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [superadminId, 'superadmin', null, passwordHash, 'superadmin', 'approved', '슈퍼관리자', 999, now, now]
+    );
+
+    console.log('✅ 기본 superadmin 계정 생성됨');
+    console.log('   - 아이디: superadmin');
+    console.log(`   - 비밀번호: ${superadminPassword}`);
+    console.log('   ⚠️  프로덕션 배포 전 비밀번호를 변경하세요!');
+
+    // 기존 디바이스들을 superadmin에게 할당
+    const [result] = await pool.execute('UPDATE device SET user_id = ? WHERE user_id IS NULL', [superadminId]);
+    if (result.affectedRows > 0) {
+      console.log(`✅ 기존 디바이스 ${result.affectedRows}개를 superadmin에게 할당됨`);
+    }
+  } else {
+    console.log('✅ superadmin 계정이 이미 존재합니다.');
+
+    // 소유자 없는 디바이스가 있다면 superadmin에게 할당
+    const superadmin = superadminRows[0];
+    const [result] = await pool.execute('UPDATE device SET user_id = ? WHERE user_id IS NULL', [superadmin.id]);
+    if (result.affectedRows > 0) {
+      console.log(`✅ 소유자 없는 디바이스 ${result.affectedRows}개를 superadmin에게 할당됨`);
     }
   }
+
+  console.log('\n✅ 데이터베이스가 성공적으로 초기화되었습니다!');
+  console.log(`📁 MariaDB: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '3306'}/${dbName}`);
+
+  await pool.end();
 }
 
-console.log('\n✅ 데이터베이스가 성공적으로 초기화되었습니다!');
-console.log(`📁 위치: ${dbPath}`);
-
-db.close();
+initDB().catch((err) => {
+  console.error('❌ 데이터베이스 초기화 실패:', err);
+  process.exit(1);
+});
