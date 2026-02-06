@@ -29,13 +29,17 @@ export default function WaitingListWidget({ className = '', deviceId }: WaitingL
   };
 
   const fetchPatients = async () => {
+    if (!deviceId) return;
     try {
-      const response = await fetch('/api/patients');
-      const data = await response.json();
-      setPatients(data);
+      const response = await fetch(`/api/devices/${deviceId}/patients`);
+      if (response.ok) {
+        const data = await response.json();
+        setPatients(data);
+      } else {
+        setPatients([]);
+      }
     } catch (error) {
       console.error('환자 목록 가져오기 오류:', error);
-      // 오류 시 빈 배열로 설정
       setPatients([]);
     }
   };

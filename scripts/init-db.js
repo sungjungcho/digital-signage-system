@@ -229,7 +229,47 @@ async function initDB() {
   console.log('✅ device_requests 테이블 생성/확인 완료');
 
   // ============================
-  // 9. 기존 device_accounts, device_sessions 테이블 삭제
+  // 9. device_patients 테이블 생성 (디바이스별 환자 대기 목록)
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device_patients (
+      id VARCHAR(36) PRIMARY KEY,
+      device_id VARCHAR(36) NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      number INT NOT NULL,
+      department VARCHAR(100) NOT NULL,
+      created_at VARCHAR(30) NOT NULL,
+      INDEX idx_device_patients_device_id (device_id),
+      INDEX idx_device_patients_number (number),
+      FOREIGN KEY (device_id) REFERENCES device(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ device_patients 테이블 생성/확인 완료');
+
+  // ============================
+  // 9-1. device_notices 테이블 생성 (디바이스별 공지사항)
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device_notices (
+      id VARCHAR(36) PRIMARY KEY,
+      device_id VARCHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      category VARCHAR(50),
+      favorite TINYINT(1) DEFAULT 0,
+      lastUsedAt VARCHAR(30),
+      usageCount INT DEFAULT 0,
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_device_notices_device_id (device_id),
+      INDEX idx_device_notices_category (category),
+      FOREIGN KEY (device_id) REFERENCES device(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ device_notices 테이블 생성/확인 완료');
+
+  // ============================
+  // 10. 기존 device_accounts, device_sessions 테이블 삭제
   // ============================
   if (await tableExists('device_sessions')) {
     await pool.query('DROP TABLE device_sessions');

@@ -102,15 +102,13 @@ export function broadcastContentUpdateToDevice(deviceId: string) {
   }
 }
 
-// 모든 디바이스에 환자 명단 업데이트 통지
-export function broadcastPatientListUpdate() {
+// 특정 디바이스에 환자 명단 업데이트 통지
+export function broadcastPatientListUpdate(deviceId: string) {
   const activeSockets = (globalThis as any).deviceSockets || deviceSockets;
-  activeSockets.forEach((ws: WebSocket, deviceId: string) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'patientListUpdate' }));
-    } else {
-    }
-  });
+  const ws = activeSockets.get(deviceId);
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'patientListUpdate' }));
+  }
 }
 
 export { wss, deviceSockets };
