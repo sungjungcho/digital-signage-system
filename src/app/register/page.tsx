@@ -154,10 +154,13 @@ export default function RegisterPage() {
               value={formData.password}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-              placeholder="4자 이상"
+              placeholder="8자 이상"
               required
               autoComplete="new-password"
             />
+            <p className="mt-1.5 text-xs text-blue-300/70">
+              8자 이상, 모든 문자 사용 가능 (흔한 비밀번호 사용 불가)
+            </p>
           </div>
 
           <div>

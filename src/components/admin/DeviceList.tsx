@@ -226,13 +226,27 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                   <p className="text-base text-black">{device.location}</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className={`px-2 py-1 rounded text-sm ${
-                    device.status === 'online'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {device.status}
-                  </div>
+                  {/* 승인 상태 표시 */}
+                  {device.approval_status === 'pending' && (
+                    <div className="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">
+                      승인대기
+                    </div>
+                  )}
+                  {device.approval_status === 'rejected' && (
+                    <div className="px-2 py-1 rounded text-sm bg-red-100 text-red-800">
+                      거부됨
+                    </div>
+                  )}
+                  {/* 온라인 상태 (승인된 경우만) */}
+                  {(device.approval_status === 'approved' || !device.approval_status) && (
+                    <div className={`px-2 py-1 rounded text-sm ${
+                      device.status === 'online'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {device.status === 'online' ? '온라인' : '오프라인'}
+                    </div>
+                  )}
                   {isSuperAdmin && (
                     <>
                       <button

@@ -96,16 +96,24 @@ async function initDB() {
       location VARCHAR(255) NOT NULL,
       alias VARCHAR(100),
       status VARCHAR(20) DEFAULT 'offline',
+      approval_status VARCHAR(20) DEFAULT 'pending',
       user_id VARCHAR(36),
       pin_code VARCHAR(10),
       lastConnected VARCHAR(30),
       createdAt VARCHAR(30) NOT NULL,
       updatedAt VARCHAR(30) NOT NULL,
       INDEX idx_device_user_id (user_id),
+      INDEX idx_device_approval_status (approval_status),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
   `);
   console.log('✅ device 테이블 생성/확인 완료');
+
+  // approval_status 컬럼 추가 (기존 DB 마이그레이션)
+  if (await tableExists('device') && !(await columnExists('device', 'approval_status'))) {
+    await pool.query("ALTER TABLE device ADD COLUMN approval_status VARCHAR(20) DEFAULT 'approved'");
+    console.log('✅ device 테이블에 approval_status 컬럼 추가 완료');
+  }
 
   // ============================
   // 4. devicecontent 테이블 생성

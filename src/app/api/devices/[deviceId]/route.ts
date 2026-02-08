@@ -134,11 +134,19 @@ export async function PATCH(
       }
     }
 
+    // approval_status 변경 검증
+    if (data.approval_status && !['pending', 'approved', 'rejected'].includes(data.approval_status)) {
+      return NextResponse.json(
+        { error: '유효하지 않은 승인 상태입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 디바이스 업데이트
     const now = new Date().toISOString();
     await execute(`
       UPDATE device
-      SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, updatedAt = ?
+      SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, approval_status = ?, updatedAt = ?
       WHERE id = ?
     `, [
       data.name || device.name,
@@ -146,6 +154,7 @@ export async function PATCH(
       data.alias || device.alias,
       data.pin_code !== undefined ? data.pin_code : device.pin_code,
       data.user_id || device.user_id,
+      data.approval_status || device.approval_status,
       now,
       device.id
     ]);

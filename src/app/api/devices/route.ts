@@ -21,17 +21,18 @@ export async function GET() {
       );
     }
 
-    // 슈퍼관리자는 모든 디바이스, 일반 사용자는 본인에게 할당된 디바이스만
+    // 슈퍼관리자는 모든 디바이스, 일반 사용자는 본인에게 할당된 승인된 디바이스만
     let devices;
 
     if (userRole === 'superadmin') {
       devices = await queryAll(`
-        SELECT d.*, u.username as owner_username
+        SELECT d.*, u.username as owner_username, u.name as owner_name
         FROM device d
         LEFT JOIN users u ON d.user_id = u.id
-        ORDER BY d.createdAt ASC
+        ORDER BY d.approval_status ASC, d.createdAt ASC
       `);
     } else {
+      // 일반 사용자는 본인의 모든 디바이스 (승인 대기 포함)
       devices = await queryAll(`
         SELECT * FROM device WHERE user_id = ? ORDER BY createdAt ASC
       `, [userId]);
@@ -59,7 +60,7 @@ export async function GET() {
   }
 }
 
-// 슈퍼관리자 전용: 디바이스 생성 및 사용자 할당
+// 디바이스 생성 (일반 사용자: 승인 대기, 슈퍼관리자: 즉시 승인)
 export async function POST(req: Request) {
   try {
     const headersList = await headers();
@@ -73,15 +74,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // 슈퍼관리자만 디바이스 생성 가능
-    if (userRole !== 'superadmin') {
-      return NextResponse.json(
-        { error: '슈퍼관리자만 디바이스를 등록할 수 있습니다.' },
-        { status: 403 }
-      );
-    }
-
     const data = await req.json();
+    const isSuperAdmin = userRole === 'superadmin';
+
+    // 슈퍼관리자가 아닌 경우 디바이스 한도 체크
+    if (!isSuperAdmin) {
+      const user = await queryOne('SELECT max_devices FROM users WHERE id = ?', [userId]) as any;
+      const deviceCount = await queryOne('SELECT COUNT(*) as count FROM device WHERE user_id = ?', [userId]) as any;
+
+      if (deviceCount.count >= (user?.max_devices || 3)) {
+        return NextResponse.json(
+          { error: `디바이스 등록 한도(${user?.max_devices || 3}개)를 초과했습니다. 관리자에게 문의하세요.` },
+          { status: 400 }
+        );
+      }
+    }
 
     // PIN 코드: 직접 입력 또는 자동 생성
     let pinCode = data.pin_code;
@@ -96,9 +103,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 할당할 사용자 ID (필수)
-    const assignUserId = data.user_id;
-    if (!assignUserId) {
+    // 할당할 사용자 ID (슈퍼관리자는 선택, 일반 사용자는 본인)
+    let assignUserId = isSuperAdmin ? data.user_id : userId;
+
+    if (isSuperAdmin && !assignUserId) {
       return NextResponse.json(
         { error: '디바이스를 할당할 사용자를 선택해주세요.' },
         { status: 400 }
@@ -132,14 +140,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // 슈퍼관리자: 즉시 승인, 일반 사용자: 대기
+    const approvalStatus = isSuperAdmin ? 'approved' : 'pending';
+
     await execute(`
-      INSERT INTO device (id, name, location, alias, status, user_id, pin_code, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [deviceId, data.name, data.location, alias, 'offline', assignUserId, pinCode, now, now]);
+      INSERT INTO device (id, name, location, alias, status, approval_status, user_id, pin_code, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [deviceId, data.name, data.location, alias, 'offline', approvalStatus, assignUserId, pinCode, now, now]);
 
     const newDevice = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
 
-    return NextResponse.json(newDevice);
+    return NextResponse.json({
+      ...newDevice,
+      message: isSuperAdmin ? '디바이스가 등록되었습니다.' : '디바이스 등록 요청이 완료되었습니다. 관리자 승인 후 사용 가능합니다.'
+    });
   } catch (error) {
     console.error('Error creating device:', error);
     return NextResponse.json(

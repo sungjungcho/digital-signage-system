@@ -10,7 +10,11 @@ interface Device {
   location: string;
   pin_code: string;
   status: string;
+  approval_status: 'pending' | 'approved' | 'rejected';
   user_id: string;
+  owner_username?: string;
+  owner_name?: string;
+  createdAt?: string;
 }
 
 interface User {
@@ -52,6 +56,13 @@ export default function SuperAdminPage() {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [editDeviceForm, setEditDeviceForm] = useState({ name: '', alias: '', location: '', pin_code: '', user_id: '' });
 
+  // 디바이스 한도 수정
+  const [editingMaxDevices, setEditingMaxDevices] = useState<string | null>(null);
+  const [maxDevicesValue, setMaxDevicesValue] = useState<number>(3);
+
+  // 승인 대기 디바이스
+  const [pendingDevices, setPendingDevices] = useState<Device[]>([]);
+
   const approvedUsers = users.filter(u => u.status === 'approved');
 
   const fetchUsers = async () => {
@@ -70,6 +81,58 @@ export default function SuperAdminPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPendingDevices = async () => {
+    try {
+      const response = await fetch('/api/devices');
+      if (response.ok) {
+        const data = await response.json();
+        const pending = data.filter((d: Device) => d.approval_status === 'pending');
+        setPendingDevices(pending);
+      }
+    } catch (error) {
+      console.error('디바이스 목록 조회 오류:', error);
+    }
+  };
+
+  const handleApproveDevice = async (deviceId: string) => {
+    setActionLoading(deviceId);
+    try {
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_status: 'approved' }),
+      });
+      if (response.ok) {
+        fetchPendingDevices();
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        alert(data.error || '디바이스 승인 실패');
+      }
+    } catch { alert('디바이스 승인 중 오류 발생'); }
+    finally { setActionLoading(null); }
+  };
+
+  const handleRejectDevice = async (deviceId: string) => {
+    if (!confirm('이 디바이스 등록 요청을 거부하시겠습니까?')) return;
+    setActionLoading(deviceId);
+    try {
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_status: 'rejected' }),
+      });
+      if (response.ok) {
+        fetchPendingDevices();
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        alert(data.error || '디바이스 거부 실패');
+      }
+    } catch { alert('디바이스 거부 중 오류 발생'); }
+    finally { setActionLoading(null); }
   };
 
   const fetchUserDevices = async (userId: string) => {
@@ -98,6 +161,7 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     fetchUsers();
+    fetchPendingDevices();
   }, []);
 
   // 디바이스 생성
@@ -310,6 +374,31 @@ export default function SuperAdminPage() {
     finally { setActionLoading(null); }
   };
 
+  // 디바이스 한도 수정
+  const handleStartEditMaxDevices = (user: User) => {
+    setEditingMaxDevices(user.id);
+    setMaxDevicesValue(user.max_devices);
+  };
+
+  const handleUpdateMaxDevices = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const response = await fetch(`/api/superadmin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_devices: maxDevicesValue }),
+      });
+      if (response.ok) {
+        fetchUsers();
+        setEditingMaxDevices(null);
+      } else {
+        const data = await response.json();
+        alert(data.error || '디바이스 한도 변경 실패');
+      }
+    } catch { alert('디바이스 한도 변경 중 오류 발생'); }
+    finally { setActionLoading(null); }
+  };
+
   const filteredUsers = users.filter(user => {
     if (filter === 'all') return true;
     return user.status === filter;
@@ -499,7 +588,62 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* 승인 대기 알림 */}
+        {/* 디바이스 승인 대기 목록 */}
+        {pendingDevices.length > 0 && (
+          <div className="mb-6 bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-md">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">디바이스 승인 대기</h2>
+                <p className="text-sm text-orange-600">{pendingDevices.length}개의 디바이스가 승인 대기 중입니다</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {pendingDevices.map((device) => (
+                <div key={device.id} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <svg className="h-10 w-10 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{device.name}</p>
+                      <p className="text-sm text-gray-600">위치: {device.location}</p>
+                      <p className="text-sm text-gray-500">
+                        별칭: <span className="font-mono text-orange-600">/{device.alias}</span>
+                        {' | '}요청자: <span className="font-medium">{device.owner_name || device.owner_username || '알 수 없음'}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleApproveDevice(device.id)}
+                      disabled={actionLoading === device.id}
+                      className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50 font-medium"
+                    >
+                      승인
+                    </button>
+                    <button
+                      onClick={() => handleRejectDevice(device.id)}
+                      disabled={actionLoading === device.id}
+                      className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50 font-medium"
+                    >
+                      거부
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 사용자 승인 대기 알림 */}
         {pendingCount > 0 && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center space-x-3">
             <div className="flex-shrink-0">
@@ -543,7 +687,7 @@ export default function SuperAdminPage() {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">사용자</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">상태</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">역할</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">디바이스</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">디바이스 (현재/한도)</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">가입일</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-600">작업</th>
               </tr>
@@ -574,8 +718,45 @@ export default function SuperAdminPage() {
                     </td>
                     <td className="px-6 py-4">{getStatusBadge(user.status)}</td>
                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-gray-600">{user.deviceCount}개</span>
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      {editingMaxDevices === user.id ? (
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={maxDevicesValue}
+                            onChange={(e) => setMaxDevicesValue(parseInt(e.target.value) || 0)}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center"
+                          />
+                          <button
+                            onClick={() => handleUpdateMaxDevices(user.id)}
+                            disabled={actionLoading === user.id}
+                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50"
+                          >
+                            저장
+                          </button>
+                          <button
+                            onClick={() => setEditingMaxDevices(null)}
+                            className="px-2 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-600">{user.deviceCount}/{user.max_devices}개</span>
+                          {user.status === 'approved' && (
+                            <button
+                              onClick={() => handleStartEditMaxDevices(user)}
+                              className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition"
+                              title="디바이스 한도 수정"
+                            >
+                              수정
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-500">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { queryOne, execute } from '@/lib/db';
+import { validatePassword } from '@/lib/passwordValidator';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -26,10 +27,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 비밀번호 길이 검증
-    if (password.length < 4) {
+    // 비밀번호 유효성 검증
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
       return NextResponse.json(
-        { message: '비밀번호는 4자 이상이어야 합니다.' },
+        { message: passwordValidation.message },
         { status: 400 }
       );
     }

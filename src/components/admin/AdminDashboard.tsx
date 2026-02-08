@@ -24,6 +24,13 @@ export default function AdminDashboard() {
   const [sending, setSending] = useState(false);
   const [alertResult, setAlertResult] = useState<string | null>(null);
 
+  // 디바이스 등록 폼
+  const [showDeviceForm, setShowDeviceForm] = useState(false);
+  const [deviceForm, setDeviceForm] = useState({ name: '', location: '', alias: '', pin_code: '' });
+  const [deviceFormLoading, setDeviceFormLoading] = useState(false);
+  const [deviceFormError, setDeviceFormError] = useState('');
+  const [deviceFormSuccess, setDeviceFormSuccess] = useState('');
+
   const fetchDevices = async () => {
     try {
       const response = await fetch('/api/devices');
@@ -62,6 +69,56 @@ export default function AdminDashboard() {
       router.push('/admin/login');
     } catch (error) {
       console.error('로그아웃 오류:', error);
+    }
+  };
+
+  // 디바이스 등록 요청
+  const handleCreateDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeviceFormError('');
+    setDeviceFormSuccess('');
+
+    if (!deviceForm.name.trim()) {
+      setDeviceFormError('디바이스 이름을 입력해주세요.');
+      return;
+    }
+    if (!deviceForm.location.trim()) {
+      setDeviceFormError('설치 위치를 입력해주세요.');
+      return;
+    }
+    if (deviceForm.alias && !/^[a-z0-9\-]+$/.test(deviceForm.alias)) {
+      setDeviceFormError('별칭은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.');
+      return;
+    }
+
+    setDeviceFormLoading(true);
+    try {
+      const response = await fetch('/api/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: deviceForm.name,
+          location: deviceForm.location,
+          alias: deviceForm.alias || undefined,
+          pin_code: deviceForm.pin_code || undefined,
+          auto_pin: !deviceForm.pin_code,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setDeviceFormSuccess(data.message || '디바이스 등록 요청이 완료되었습니다.');
+        setDeviceForm({ name: '', location: '', alias: '', pin_code: '' });
+        setShowDeviceForm(false);
+        fetchDevices();
+      } else {
+        setDeviceFormError(data.error || '디바이스 등록 실패');
+      }
+    } catch {
+      setDeviceFormError('디바이스 등록 중 오류가 발생했습니다.');
+    } finally {
+      setDeviceFormLoading(false);
     }
   };
 
@@ -120,12 +177,107 @@ export default function AdminDashboard() {
                 <h2 className="text-2xl font-bold text-gray-800">내 디바이스</h2>
               </div>
 
-              {/* 안내 메시지 */}
-              {userRole !== 'superadmin' && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    디바이스 추가/수정이 필요하시면 관리자에게 문의하세요.
-                  </p>
+              {/* 디바이스 등록 버튼 */}
+              <button
+                onClick={() => setShowDeviceForm(!showDeviceForm)}
+                className="w-full mb-4 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition font-medium shadow-md flex items-center justify-center space-x-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>새 디바이스 등록</span>
+              </button>
+
+              {/* 성공 메시지 */}
+              {deviceFormSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700">{deviceFormSuccess}</p>
+                </div>
+              )}
+
+              {/* 디바이스 등록 폼 */}
+              {showDeviceForm && (
+                <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                  <h3 className="font-semibold text-gray-700 mb-3">디바이스 등록 요청</h3>
+                  {userRole !== 'superadmin' && (
+                    <p className="text-xs text-blue-600 mb-3">
+                      * 등록 후 관리자 승인이 필요합니다.
+                    </p>
+                  )}
+                  <form onSubmit={handleCreateDevice} className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">디바이스 이름 *</label>
+                      <input
+                        type="text"
+                        value={deviceForm.name}
+                        onChange={(e) => setDeviceForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        placeholder="예: 로비 디스플레이"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">설치 위치 *</label>
+                      <input
+                        type="text"
+                        value={deviceForm.location}
+                        onChange={(e) => setDeviceForm(prev => ({ ...prev, location: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        placeholder="예: 1층 로비"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">별칭 (선택)</label>
+                      <input
+                        type="text"
+                        value={deviceForm.alias}
+                        onChange={(e) => {
+                          const v = e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+                          setDeviceForm(prev => ({ ...prev, alias: v }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                        placeholder="예: lobby-display"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">URL에 사용됩니다. 미입력 시 자동생성</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">PIN 코드 (선택)</label>
+                      <input
+                        type="text"
+                        value={deviceForm.pin_code}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setDeviceForm(prev => ({ ...prev, pin_code: v }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono text-center tracking-widest"
+                        placeholder="4자리 숫자 (미입력 시 자동생성)"
+                        maxLength={4}
+                      />
+                    </div>
+                    {deviceFormError && (
+                      <div className="p-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                        {deviceFormError}
+                      </div>
+                    )}
+                    <div className="flex space-x-2">
+                      <button
+                        type="submit"
+                        disabled={deviceFormLoading}
+                        className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:opacity-50 text-sm"
+                      >
+                        {deviceFormLoading ? '등록 중...' : '등록 요청'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDeviceForm(false);
+                          setDeviceFormError('');
+                        }}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium text-sm"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
 
