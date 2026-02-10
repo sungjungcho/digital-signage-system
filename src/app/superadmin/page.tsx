@@ -11,6 +11,7 @@ interface Device {
   pin_code: string;
   status: string;
   approval_status: 'pending' | 'approved' | 'rejected';
+  is_over_limit_request?: boolean | number;
   user_id: string;
   owner_username?: string;
   owner_name?: string;
@@ -473,6 +474,15 @@ export default function SuperAdminPage() {
               >
                 홈으로
               </a>
+              <button
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' });
+                  router.push('/login');
+                }}
+                className="px-4 py-2 bg-red-500/80 text-white rounded-lg hover:bg-red-600 transition font-medium"
+              >
+                로그아웃
+              </button>
             </div>
           </div>
         </div>
@@ -604,41 +614,60 @@ export default function SuperAdminPage() {
             </div>
 
             <div className="space-y-3">
-              {pendingDevices.map((device) => (
-                <div key={device.id} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-xl">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <svg className="h-10 w-10 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+              {pendingDevices.map((device) => {
+                const isOverLimit = device.is_over_limit_request === true || device.is_over_limit_request === 1;
+                return (
+                  <div key={device.id} className={`flex items-center justify-between p-4 rounded-xl ${
+                    isOverLimit
+                      ? 'bg-red-50 border-2 border-red-300'
+                      : 'bg-orange-50 border border-orange-200'
+                  }`}>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-shrink-0">
+                        <svg className={`h-10 w-10 ${isOverLimit ? 'text-red-400' : 'text-orange-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <p className="font-semibold text-gray-800">{device.name}</p>
+                          {isOverLimit && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                              한도 초과 요청
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">위치: {device.location}</p>
+                        <p className="text-sm text-gray-500">
+                          별칭: <span className={`font-mono ${isOverLimit ? 'text-red-600' : 'text-orange-600'}`}>/{device.alias}</span>
+                          {' | '}요청자: <span className="font-medium">{device.owner_name || device.owner_username || '알 수 없음'}</span>
+                        </p>
+                        {isOverLimit && (
+                          <p className="text-xs text-red-600 mt-1">
+                            * 승인 전 해당 사용자의 디바이스 한도를 늘려주세요
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{device.name}</p>
-                      <p className="text-sm text-gray-600">위치: {device.location}</p>
-                      <p className="text-sm text-gray-500">
-                        별칭: <span className="font-mono text-orange-600">/{device.alias}</span>
-                        {' | '}요청자: <span className="font-medium">{device.owner_name || device.owner_username || '알 수 없음'}</span>
-                      </p>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleApproveDevice(device.id)}
+                        disabled={actionLoading === device.id}
+                        className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50 font-medium"
+                      >
+                        승인
+                      </button>
+                      <button
+                        onClick={() => handleRejectDevice(device.id)}
+                        disabled={actionLoading === device.id}
+                        className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50 font-medium"
+                      >
+                        거부
+                      </button>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleApproveDevice(device.id)}
-                      disabled={actionLoading === device.id}
-                      className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50 font-medium"
-                    >
-                      승인
-                    </button>
-                    <button
-                      onClick={() => handleRejectDevice(device.id)}
-                      disabled={actionLoading === device.id}
-                      className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50 font-medium"
-                    >
-                      거부
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

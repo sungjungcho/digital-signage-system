@@ -31,6 +31,10 @@ export default function AdminDashboard() {
   const [deviceFormError, setDeviceFormError] = useState('');
   const [deviceFormSuccess, setDeviceFormSuccess] = useState('');
 
+  // 디바이스 한도 관련
+  const [userMaxDevices, setUserMaxDevices] = useState<number>(3);
+  const [isOverLimitRequest, setIsOverLimitRequest] = useState(false);
+
   const fetchDevices = async () => {
     try {
       const response = await fetch('/api/devices');
@@ -49,6 +53,9 @@ export default function AdminDashboard() {
       const data = await response.json();
       if (data.user?.role) {
         setUserRole(data.user.role);
+      }
+      if (data.user?.max_devices) {
+        setUserMaxDevices(data.user.max_devices);
       }
     } catch (error) {
       console.error('사용자 정보 조회 오류:', error);
@@ -102,6 +109,7 @@ export default function AdminDashboard() {
           alias: deviceForm.alias || undefined,
           pin_code: deviceForm.pin_code || undefined,
           auto_pin: !deviceForm.pin_code,
+          is_over_limit_request: isOverLimitRequest,
         }),
       });
 
@@ -110,6 +118,7 @@ export default function AdminDashboard() {
       if (response.ok) {
         setDeviceFormSuccess(data.message || '디바이스 등록 요청이 완료되었습니다.');
         setDeviceForm({ name: '', location: '', alias: '', pin_code: '' });
+        setIsOverLimitRequest(false);
         setShowDeviceForm(false);
         fetchDevices();
       } else {
@@ -121,6 +130,9 @@ export default function AdminDashboard() {
       setDeviceFormLoading(false);
     }
   };
+
+  // 디바이스 한도 초과 여부 확인
+  const isDeviceLimitExceeded = userRole !== 'superadmin' && devices.length >= userMaxDevices;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-cyan-50 pb-10">
@@ -136,7 +148,6 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-800">디지털 사이니지 관리</h1>
-                <p className="text-base text-teal-600 font-medium">병원 통합 관리 시스템</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -258,13 +269,32 @@ export default function AdminDashboard() {
                         {deviceFormError}
                       </div>
                     )}
+                    {/* 한도 초과 시 추가 등록 요청 체크박스 */}
+                    {isDeviceLimitExceeded && (
+                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <p className="text-sm text-orange-700 mb-2">
+                          디바이스 등록 한도({userMaxDevices}개)를 초과했습니다.
+                        </p>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isOverLimitRequest}
+                            onChange={(e) => setIsOverLimitRequest(e.target.checked)}
+                            className="h-4 w-4 text-orange-600 rounded border-orange-300 focus:ring-orange-500"
+                          />
+                          <span className="text-sm font-medium text-orange-800">
+                            추가 등록 요청 (관리자 승인 필요)
+                          </span>
+                        </label>
+                      </div>
+                    )}
                     <div className="flex space-x-2">
                       <button
                         type="submit"
-                        disabled={deviceFormLoading}
+                        disabled={deviceFormLoading || (isDeviceLimitExceeded && !isOverLimitRequest)}
                         className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:opacity-50 text-sm"
                       >
-                        {deviceFormLoading ? '등록 중...' : '등록 요청'}
+                        {deviceFormLoading ? '등록 중...' : (isOverLimitRequest ? '추가 등록 요청' : '등록 요청')}
                       </button>
                       <button
                         type="button"

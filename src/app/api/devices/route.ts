@@ -78,11 +78,13 @@ export async function POST(req: Request) {
     const isSuperAdmin = userRole === 'superadmin';
 
     // 슈퍼관리자가 아닌 경우 디바이스 한도 체크
+    const isOverLimitRequest = data.is_over_limit_request === true;
+
     if (!isSuperAdmin) {
       const user = await queryOne('SELECT max_devices FROM users WHERE id = ?', [userId]) as any;
       const deviceCount = await queryOne('SELECT COUNT(*) as count FROM device WHERE user_id = ?', [userId]) as any;
 
-      if (deviceCount.count >= (user?.max_devices || 3)) {
+      if (deviceCount.count >= (user?.max_devices || 3) && !isOverLimitRequest) {
         return NextResponse.json(
           { error: `디바이스 등록 한도(${user?.max_devices || 3}개)를 초과했습니다. 관리자에게 문의하세요.` },
           { status: 400 }
@@ -144,9 +146,9 @@ export async function POST(req: Request) {
     const approvalStatus = isSuperAdmin ? 'approved' : 'pending';
 
     await execute(`
-      INSERT INTO device (id, name, location, alias, status, approval_status, user_id, pin_code, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [deviceId, data.name, data.location, alias, 'offline', approvalStatus, assignUserId, pinCode, now, now]);
+      INSERT INTO device (id, name, location, alias, status, approval_status, is_over_limit_request, user_id, pin_code, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [deviceId, data.name, data.location, alias, 'offline', approvalStatus, isOverLimitRequest ? 1 : 0, assignUserId, pinCode, now, now]);
 
     const newDevice = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
 

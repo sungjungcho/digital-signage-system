@@ -142,6 +142,22 @@ export async function PATCH(
       );
     }
 
+    // 한도 초과 요청 디바이스 승인 시 한도 검증
+    if (data.approval_status === 'approved' && device.approval_status === 'pending' && device.is_over_limit_request) {
+      const ownerUser = await queryOne('SELECT max_devices FROM users WHERE id = ?', [device.user_id]) as any;
+      const approvedDeviceCount = await queryOne(
+        "SELECT COUNT(*) as count FROM device WHERE user_id = ? AND approval_status = 'approved'",
+        [device.user_id]
+      ) as any;
+
+      if (approvedDeviceCount.count >= (ownerUser?.max_devices || 3)) {
+        return NextResponse.json(
+          { error: `해당 사용자의 디바이스 한도(${ownerUser?.max_devices || 3}개)가 부족합니다. 먼저 사용자의 디바이스 한도를 늘려주세요.` },
+          { status: 400 }
+        );
+      }
+    }
+
     // 디바이스 업데이트
     const now = new Date().toISOString();
     await execute(`

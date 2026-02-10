@@ -5,6 +5,7 @@ export type device = {
   location: string;
   status: 'online' | 'offline';
   approval_status?: 'pending' | 'approved' | 'rejected';  // 승인 상태
+  is_over_limit_request?: boolean;  // 한도 초과 등록 요청 여부
   lastConnected?: string;
   user_id: string | null;  // 소유자 ID
   pin_code: string;        // 디스플레이 접근 PIN 코드 (4자리)

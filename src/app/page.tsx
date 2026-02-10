@@ -100,10 +100,10 @@ export default function Home() {
             </div>
           </div>
           <h2 className="text-5xl font-bold text-white mb-6">
-            병원을 위한 스마트 사이니지
+            디지털 사이니지
           </h2>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            실시간 콘텐츠 관리와 환자 호출 시스템을 통합한
+            실시간 콘텐츠 관리와 호출 시스템을 통합한
             <br />
             차세대 디지털 디스플레이 솔루션
           </p>
@@ -145,9 +145,9 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">환자 호출</h3>
+            <h3 className="text-xl font-bold text-white mb-2">호출 알림 기능</h3>
             <p className="text-white/80">
-              대기환자 관리 및 실시간 호출 알림 시스템
+              호출 알림 시스템
             </p>
           </div>
 
@@ -191,8 +191,8 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h4 className="text-lg font-semibold text-white mb-1">병원 환경 최적화</h4>
-                <p className="text-white/80">의료기관에 적합한 UI/UX 디자인과 기능</p>
+                <h4 className="text-lg font-semibold text-white mb-1">시스템 환경 최적화</h4>
+                <p className="text-white/80">사용자 환경에 적합한 UI/UX 디자인과 기능</p>
               </div>
             </div>
             <div className="flex items-start space-x-4">
@@ -237,7 +237,7 @@ export default function Home() {
         <div className="container mx-auto px-6 py-8">
           <div className="text-center text-white/80">
             <p className="mb-2">© 2025 디지털 사이니지 시스템. All rights reserved.</p>
-            <p className="text-sm">병원 환경을 위한 스마트 디스플레이 솔루션</p>
+            <p className="text-sm">스마트 디스플레이 솔루션</p>
           </div>
         </div>
       </footer>

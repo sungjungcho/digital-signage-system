@@ -97,6 +97,7 @@ async function initDB() {
       alias VARCHAR(100),
       status VARCHAR(20) DEFAULT 'offline',
       approval_status VARCHAR(20) DEFAULT 'pending',
+      is_over_limit_request TINYINT(1) DEFAULT 0,
       user_id VARCHAR(36),
       pin_code VARCHAR(10),
       lastConnected VARCHAR(30),
@@ -113,6 +114,12 @@ async function initDB() {
   if (await tableExists('device') && !(await columnExists('device', 'approval_status'))) {
     await pool.query("ALTER TABLE device ADD COLUMN approval_status VARCHAR(20) DEFAULT 'approved'");
     console.log('✅ device 테이블에 approval_status 컬럼 추가 완료');
+  }
+
+  // is_over_limit_request 컬럼 추가 (기존 DB 마이그레이션)
+  if (await tableExists('device') && !(await columnExists('device', 'is_over_limit_request'))) {
+    await pool.query("ALTER TABLE device ADD COLUMN is_over_limit_request TINYINT(1) DEFAULT 0");
+    console.log('✅ device 테이블에 is_over_limit_request 컬럼 추가 완료');
   }
 
   // ============================
