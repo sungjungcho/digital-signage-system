@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     // 쿠키에 토큰 설정 (세션 쿠키 - 브라우저 닫으면 삭제됨)
     response.cookies.set('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // HTTP에서도 동작하도록 설정
       sameSite: 'lax',
       // maxAge 제거 - 세션 쿠키로 설정하여 브라우저 닫으면 자동 삭제
       path: '/',
