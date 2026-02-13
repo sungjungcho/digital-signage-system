@@ -112,14 +112,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         contentId
       ]);
     } else if (existingContent.type === 'video' || existingContent.type === 'image') {
-      // 파일 기반 콘텐츠는 duration만 수정 가능
+      // 파일 기반 콘텐츠 수정 (URL 변경 시 파일도 교체 가능)
       await execute(`
         UPDATE devicecontent
-        SET duration = ?,
+        SET url = ?,
+            duration = ?,
             scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
             updatedAt = ?
         WHERE id = ?
       `, [
+        data.url !== undefined ? data.url : existingContent.url,
         data.duration !== undefined ? data.duration : existingContent.duration,
         data.scheduleType || 'always',
         data.specificDate || null,

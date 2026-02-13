@@ -64,6 +64,9 @@ export default function SuperAdminPage() {
   // 승인 대기 디바이스
   const [pendingDevices, setPendingDevices] = useState<Device[]>([]);
 
+  // 디바이스 미리보기
+  const [previewDevice, setPreviewDevice] = useState<Device | null>(null);
+
   const approvedUsers = users.filter(u => u.status === 'approved');
 
   const fetchUsers = async () => {
@@ -948,6 +951,13 @@ export default function SuperAdminPage() {
                                       </div>
                                       <div className="flex space-x-1">
                                         <button
+                                          onClick={(e) => { e.stopPropagation(); setPreviewDevice(device); }}
+                                          className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded hover:bg-purple-200 transition"
+                                          title="디바이스 화면 미리보기"
+                                        >
+                                          미리보기
+                                        </button>
+                                        <button
                                           onClick={(e) => { e.stopPropagation(); handleStartEditDevice(device); }}
                                           className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition"
                                         >
@@ -1029,6 +1039,55 @@ export default function SuperAdminPage() {
               >
                 취소
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 디바이스 미리보기 모달 */}
+      {previewDevice && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-500 to-indigo-600">
+              <div className="flex items-center space-x-3">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <div>
+                  <h3 className="text-lg font-bold text-white">{previewDevice.name}</h3>
+                  <p className="text-sm text-purple-200">
+                    {previewDevice.location} | /{previewDevice.alias}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <a
+                  href={`/display/${previewDevice.alias}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm font-medium"
+                >
+                  새 탭에서 열기
+                </a>
+                <button
+                  onClick={() => setPreviewDevice(null)}
+                  className="p-2 text-white hover:bg-white/20 rounded-lg transition"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* iframe 컨테이너 */}
+            <div className="flex-1 bg-gray-900 p-4">
+              <iframe
+                src={`/display/${previewDevice.alias}`}
+                className="w-full h-full rounded-lg border-4 border-gray-700"
+                title={`${previewDevice.name} 미리보기`}
+              />
             </div>
           </div>
         </div>

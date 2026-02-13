@@ -80,6 +80,12 @@ export default function ContentManager({ device }: ContentManagerProps) {
     scheduleType: 'always',
   });
 
+  // 이미지/동영상 수정 모달 state
+  const [showMediaEditModal, setShowMediaEditModal] = useState(false);
+  const [editingMediaContent, setEditingMediaContent] = useState<DeviceContent | null>(null);
+  const [editingMediaFile, setEditingMediaFile] = useState<File | null>(null);
+  const [editingMediaDuration, setEditingMediaDuration] = useState(5000);
+
   // 시간 변환 헬퍼 함수
   const msToTime = (ms: number): { hours: number; minutes: number; seconds: number } => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -354,6 +360,65 @@ export default function ContentManager({ device }: ContentManagerProps) {
         console.error('분할 레이아웃 데이터 파싱 오류:', error);
         alert('분할 레이아웃 데이터를 불러오는 중 오류가 발생했습니다.');
       }
+    } else if (content.type === 'image' || content.type === 'video') {
+      // 이미지/동영상 수정 모달 열기
+      setEditingMediaContent(content);
+      setEditingMediaDuration(content.duration ?? 5000);
+      setEditingMediaFile(null);
+      setShowMediaEditModal(true);
+    }
+  };
+
+  // 이미지/동영상 수정 저장
+  const handleSaveMediaEdit = async () => {
+    if (!editingMediaContent) return;
+
+    try {
+      let newUrl = editingMediaContent.url;
+
+      // 새 파일이 선택된 경우 업로드
+      if (editingMediaFile) {
+        const formData = new FormData();
+        formData.append('file', editingMediaFile);
+        formData.append('deviceId', device.id);
+        formData.append('skipDbInsert', 'true'); // DB 저장 생략, URL만 반환
+
+        const uploadResponse = await fetch('/api/contents/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('파일 업로드 실패');
+        }
+
+        const uploadData = await uploadResponse.json();
+        newUrl = uploadData.url;
+      }
+
+      // 콘텐츠 업데이트
+      const response = await fetch(`/api/devices/${device.id}/contents/${editingMediaContent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: newUrl,
+          duration: editingMediaDuration,
+        }),
+      });
+
+      if (response.ok) {
+        alert(`${editingMediaContent.type === 'image' ? '이미지' : '동영상'}가 수정되었습니다.`);
+        setShowMediaEditModal(false);
+        setEditingMediaContent(null);
+        setEditingMediaFile(null);
+        fetchContents();
+      } else {
+        const errorData = await response.json();
+        alert('수정 실패: ' + (errorData.error || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('미디어 콘텐츠 수정 중 오류:', error);
+      alert('오류가 발생했습니다.');
     }
   };
 
@@ -2440,28 +2505,12 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {(content.type === 'text' || content.type === 'mixed' || content.type === 'split_layout') ? (
-                    <button
-                      onClick={() => handleEditContent(content)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      수정
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        const currentSeconds = content.duration / 1000;
-                        const hint = content.type === 'video' ? ' (0 입력 시 동영상 끝까지 재생)' : '';
-                        const newSeconds = prompt(`재생 시간을 초 단위로 입력하세요${hint}\n현재: ${currentSeconds}초`, String(currentSeconds));
-                        if (newSeconds !== null && !isNaN(Number(newSeconds))) {
-                          handleUpdateDuration(content.id, Number(newSeconds) * 1000);
-                        }
-                      }}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      수정
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleEditContent(content)}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    수정
+                  </button>
                   <button
                     onClick={e => {
                       e.stopPropagation();
@@ -3014,6 +3063,103 @@ export default function ContentManager({ device }: ContentManagerProps) {
               className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
             >
               전체 저장
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 이미지/동영상 수정 모달 */}
+    {showMediaEditModal && editingMediaContent && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+          <div className="border-b px-6 py-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-gray-800">
+              {editingMediaContent.type === 'image' ? '이미지' : '동영상'} 수정
+            </h3>
+            <button
+              onClick={() => {
+                setShowMediaEditModal(false);
+                setEditingMediaContent(null);
+                setEditingMediaFile(null);
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* 현재 미디어 미리보기 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">현재 파일</label>
+              {editingMediaContent.type === 'image' ? (
+                <img
+                  src={editingMediaContent.url}
+                  alt="현재 이미지"
+                  className="w-full h-48 object-contain bg-gray-100 rounded"
+                />
+              ) : (
+                <video
+                  src={editingMediaContent.url}
+                  className="w-full h-48 object-contain bg-gray-100 rounded"
+                  controls
+                />
+              )}
+            </div>
+
+            {/* 새 파일 선택 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                새 파일 선택 (선택사항)
+              </label>
+              <input
+                type="file"
+                accept={editingMediaContent.type === 'image' ? 'image/*' : 'video/*'}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setEditingMediaFile(file);
+                }}
+                className="w-full border rounded px-3 py-2"
+              />
+              {editingMediaFile && (
+                <p className="mt-1 text-sm text-green-600">
+                  선택됨: {editingMediaFile.name}
+                </p>
+              )}
+            </div>
+
+            {/* 재생 시간 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                재생 시간 (초) {editingMediaContent.type === 'video' && '(0 = 동영상 끝까지)'}
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={editingMediaDuration / 1000}
+                onChange={(e) => setEditingMediaDuration(Number(e.target.value) * 1000)}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div className="border-t px-6 py-4 flex gap-3 justify-end">
+            <button
+              onClick={() => {
+                setShowMediaEditModal(false);
+                setEditingMediaContent(null);
+                setEditingMediaFile(null);
+              }}
+              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSaveMediaEdit}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              저장
             </button>
           </div>
         </div>
