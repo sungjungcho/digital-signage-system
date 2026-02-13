@@ -17,7 +17,6 @@ export default function InitializeDevice() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [inputMethod, setInputMethod] = useState<'select' | 'manual'>('select');
   const router = useRouter();
 
   useEffect(() => {
@@ -57,7 +56,7 @@ export default function InitializeDevice() {
     e.preventDefault();
 
     if (!deviceAlias.trim()) {
-      setError('디바이스를 선택하거나 별칭을 입력해주세요.');
+      setError('디바이스를 선택해주세요.');
       return;
     }
 
@@ -95,83 +94,38 @@ export default function InitializeDevice() {
 
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-teal-100">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 입력 방법 선택 */}
-            <div className="flex space-x-3">
-              <button
-                type="button"
-                onClick={() => setInputMethod('select')}
-                className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition duration-200 ${
-                  inputMethod === 'select'
-                    ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                디바이스 선택
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputMethod('manual')}
-                className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition duration-200 ${
-                  inputMethod === 'manual'
-                    ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                직접 입력
-              </button>
-            </div>
-
             <div>
               <label htmlFor="deviceAlias" className="block text-sm font-semibold text-gray-700 mb-2">
                 디바이스
               </label>
 
-              {inputMethod === 'select' ? (
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <select
-                    id="deviceAlias"
-                    value={deviceAlias}
-                    onChange={(e) => setDeviceAlias(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
-                    disabled={isLoading || isLoadingDevices}
-                  >
-                    <option value="">
-                      {isLoadingDevices ? '디바이스 목록 로딩 중...' :
-                       devices.length === 0 ? '등록된 디바이스가 없습니다' :
-                       '디바이스를 선택해주세요'}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <select
+                  id="deviceAlias"
+                  value={deviceAlias}
+                  onChange={(e) => setDeviceAlias(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                  disabled={isLoading || isLoadingDevices}
+                >
+                  <option value="">
+                    {isLoadingDevices ? '디바이스 목록 로딩 중...' :
+                     devices.length === 0 ? '등록된 디바이스가 없습니다' :
+                     '디바이스를 선택해주세요'}
+                  </option>
+                  {devices.map(device => (
+                    <option key={device.id} value={device.alias}>
+                      {device.name} - {device.location} ({device.status === 'online' ? '온라인' : '오프라인'})
                     </option>
-                    {devices.map(device => (
-                      <option key={device.id} value={device.alias}>
-                        {device.name} - {device.location} ({device.status === 'online' ? '온라인' : '오프라인'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    id="deviceAlias"
-                    value={deviceAlias}
-                    onChange={(e) => setDeviceAlias(e.target.value)}
-                    placeholder="디바이스 별칭을 입력하세요"
-                    className="w-full pl-10 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
-                    disabled={isLoading}
-                  />
-                </div>
-              )}
+                  ))}
+                </select>
+              </div>
 
-              {!isLoadingDevices && devices.length === 0 && inputMethod === 'select' && (
+              {!isLoadingDevices && devices.length === 0 && (
                 <div className="mt-3 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm">
                   <div className="flex items-start space-x-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
