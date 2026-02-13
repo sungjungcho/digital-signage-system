@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const filePath = path.join(uploadDir, uniqueFileName);
 
     await writeFile(filePath, buffer);
-    const publicPath = `/uploads/${uniqueFileName}`;
+    const publicPath = `/api/uploads/${uniqueFileName}`;
 
     // skipDbInsert가 true면 파일만 업로드하고 URL만 반환
     if (skipDbInsert) {
