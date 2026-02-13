@@ -17,17 +17,66 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // 아이디 중복체크 상태
+  const [usernameChecked, setUsernameChecked] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(false);
+  const [usernameCheckMessage, setUsernameCheckMessage] = useState("");
+  const [checkingUsername, setCheckingUsername] = useState(false);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    // 아이디가 변경되면 중복체크 상태 초기화
+    if (name === "username") {
+      setUsernameChecked(false);
+      setUsernameAvailable(false);
+      setUsernameCheckMessage("");
+    }
+  };
+
+  // 아이디 중복체크
+  const checkUsername = async () => {
+    if (!formData.username) {
+      setUsernameCheckMessage("아이디를 입력해주세요.");
+      return;
+    }
+
+    setCheckingUsername(true);
+    setUsernameCheckMessage("");
+
+    try {
+      const res = await fetch("/api/auth/check-username", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: formData.username }),
+      });
+
+      const data = await res.json();
+      setUsernameChecked(true);
+      setUsernameAvailable(data.available);
+      setUsernameCheckMessage(data.message);
+    } catch {
+      setUsernameCheckMessage("중복 확인 중 오류가 발생했습니다.");
+    } finally {
+      setCheckingUsername(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    // 아이디 중복확인 체크
+    if (!usernameChecked || !usernameAvailable) {
+      setError("아이디 중복확인을 해주세요.");
+      setLoading(false);
+      return;
+    }
 
     // 비밀번호 확인
     if (formData.password !== formData.passwordConfirm) {
@@ -132,16 +181,31 @@ export default function RegisterPage() {
             <label className="block text-sm font-medium text-blue-200 mb-2">
               아이디 <span className="text-red-400">*</span>
             </label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-              placeholder="3-20자 영문, 숫자, 언더스코어"
-              required
-              autoComplete="username"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                placeholder="3-20자 영문, 숫자, 언더스코어"
+                required
+                autoComplete="username"
+              />
+              <button
+                type="button"
+                onClick={checkUsername}
+                disabled={checkingUsername || !formData.username}
+                className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
+              >
+                {checkingUsername ? "확인중..." : "중복확인"}
+              </button>
+            </div>
+            {usernameCheckMessage && (
+              <p className={`mt-2 text-sm ${usernameAvailable ? "text-green-400" : "text-red-400"}`}>
+                {usernameCheckMessage}
+              </p>
+            )}
           </div>
 
           <div>
