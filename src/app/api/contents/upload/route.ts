@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
     await execute(`
       INSERT INTO devicecontent (
-        id, deviceId, type, url, duration, autoplay, loop, muted, alt, \`order\`, active, createdAt, updatedAt
+        id, deviceId, type, url, duration, autoplay, \`loop\`, muted, alt, \`order\`, active, createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       newContentId,
