@@ -9,11 +9,13 @@
     "start": "next start",
     "lint": "next lint",
     "db:init": "node scripts/init-db.js",
+    "test:smoke": "node scripts/full-smoke-test.js",
     "ws-server": "npx ts-node wsServerEntry.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run ws-server\"",
     "dev:all:host": "concurrently \"npm run dev:host\" \"npm run ws-server\""
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "jose": "^6.1.3",

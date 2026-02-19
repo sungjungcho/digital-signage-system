@@ -18,7 +18,7 @@ async function getDeviceId(deviceIdOrAlias: string): Promise<string | null> {
 }
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
@@ -33,15 +33,62 @@ export async function GET(
       );
     }
 
-    // 데이터베이스에서 디바이스별 콘텐츠 목록 조회
-    const deviceContents = await queryAll(`
+    // 1. 새 구조: device_content + content 테이블에서 조회 (테이블이 없으면 빈 배열)
+    let newContents: any[] = [];
+    try {
+      newContents = await queryAll(`
+        SELECT
+          c.id,
+          c.type,
+          c.url,
+          c.text,
+          c.duration,
+          c.fontSize,
+          c.fontColor,
+          c.backgroundColor,
+          c.alt,
+          c.autoplay,
+          c.\`loop\`,
+          c.muted,
+          c.metadata,
+          dc.\`order\`,
+          dc.active,
+          dc.scheduleType,
+          dc.specificDate,
+          dc.daysOfWeek,
+          dc.startDate,
+          dc.endDate,
+          dc.startTime,
+          dc.endTime,
+          ? as deviceId
+        FROM device_content dc
+        JOIN content c ON dc.content_id = c.id
+        WHERE dc.device_id = ? AND dc.active = 1
+        ORDER BY dc.\`order\` ASC
+      `, [deviceId, deviceId]) as any[];
+    } catch {
+      // 새 테이블이 아직 생성되지 않은 경우 무시
+      newContents = [];
+    }
+
+    // 2. 기존 구조: devicecontent 테이블에서 조회 (하위 호환)
+    const oldContents = await queryAll(`
       SELECT * FROM devicecontent
       WHERE deviceId = ? AND active = 1
       ORDER BY \`order\` ASC
     `, [deviceId]) as any[];
 
+    // 3. 새 구조 콘텐츠 ID 목록 (중복 방지)
+    const newContentIds = new Set(newContents.map(c => c.id));
+
+    // 4. 기존 콘텐츠 중 새 구조에 없는 것만 추가
+    const legacyContents = oldContents.filter(c => !newContentIds.has(c.id));
+
+    // 5. 합치기 (새 구조 우선, 그 뒤에 기존 구조)
+    const allContents = [...newContents, ...legacyContents];
+
     // 복합형 콘텐츠의 metadata를 elements로 파싱
-    const processedContents = deviceContents.map(content => {
+    const processedContents = allContents.map(content => {
       if (content.type === 'mixed' && content.metadata) {
         try {
           const elements = JSON.parse(content.metadata);

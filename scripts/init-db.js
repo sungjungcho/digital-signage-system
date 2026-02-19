@@ -159,6 +159,63 @@ async function initDB() {
   console.log('✅ devicecontent 테이블 생성/확인 완료');
 
   // ============================
+  // 4-1. content 테이블 생성 (공용 콘텐츠 라이브러리)
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS content (
+      id VARCHAR(36) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      type VARCHAR(50) NOT NULL,
+      url TEXT,
+      text MEDIUMTEXT,
+      duration INT NOT NULL DEFAULT 10,
+      fontSize VARCHAR(20),
+      fontColor VARCHAR(20),
+      backgroundColor VARCHAR(20),
+      alt VARCHAR(255),
+      autoplay TINYINT(1) DEFAULT 0,
+      \`loop\` TINYINT(1) DEFAULT 0,
+      muted TINYINT(1) DEFAULT 1,
+      metadata MEDIUMTEXT,
+      user_id VARCHAR(36),
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_content_type (type),
+      INDEX idx_content_user_id (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ content 테이블 생성/확인 완료');
+
+  // ============================
+  // 4-2. device_content 테이블 생성 (디바이스-콘텐츠 연결)
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device_content (
+      id VARCHAR(36) PRIMARY KEY,
+      device_id VARCHAR(36) NOT NULL,
+      content_id VARCHAR(36) NOT NULL,
+      \`order\` INT NOT NULL DEFAULT 0,
+      active TINYINT(1) DEFAULT 1,
+      scheduleType VARCHAR(20) DEFAULT 'always',
+      specificDate VARCHAR(30),
+      daysOfWeek VARCHAR(30),
+      startDate VARCHAR(30),
+      endDate VARCHAR(30),
+      startTime VARCHAR(10),
+      endTime VARCHAR(10),
+      createdAt VARCHAR(30) NOT NULL,
+      updatedAt VARCHAR(30) NOT NULL,
+      INDEX idx_device_content_device_id (device_id),
+      INDEX idx_device_content_content_id (content_id),
+      UNIQUE KEY uk_device_content (device_id, content_id),
+      FOREIGN KEY (device_id) REFERENCES device(id) ON DELETE CASCADE,
+      FOREIGN KEY (content_id) REFERENCES content(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ device_content 테이블 생성/확인 완료');
+
+  // ============================
   // 5. content_schedule 테이블 생성
   // ============================
   await pool.query(`
