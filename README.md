@@ -1,138 +1,163 @@
 # 디지털 사이니지 시스템
 
-Next.js 기반의 디지털 사이니지 시스템으로, 다양한 디바이스에서 동적 콘텐츠를 표시하고 관리할 수 있는 솔루션입니다.
+Next.js 15 기반의 디지털 사이니지 관리 시스템입니다.  
+다중 디바이스 콘텐츠 송출, 관리자/슈퍼관리자 권한 분리, 실시간 알림/상태 동기화를 제공합니다.
 
-## 주요 기능
+## 현재 주요 기능
 
-### 콘텐츠 관리
-- **다양한 콘텐츠 타입 지원**: 텍스트, 이미지, 비디오, YouTube 영상
-- **복합형 콘텐츠**: 여러 타입의 콘텐츠를 하나로 구성
-- **분할 레이아웃**: 왼쪽 콘텐츠 + 오른쪽 정보 패널 (날짜/시간, 공지사항, 대기 환자 명단)
-- **스케줄링 기능**: 시간/요일/기간 기반의 콘텐츠 자동 교체
-- **실시간 콘텐츠 업데이트**: WebSocket을 통한 즉시 반영
+### 콘텐츠/송출
+- 텍스트, 이미지, 동영상, YouTube, 혼합(Mixed), 분할 레이아웃 콘텐츠 지원
+- 디바이스별 콘텐츠 연결 및 순서 관리(Drag & Drop)
+- 스케줄 설정: 항상/특정일/요일/기간 + 시간대
+- 디스플레이 페이지 실시간 반영(WebSocket + API)
 
 ### 디바이스 관리
-- **디바이스 등록 및 관리**: 별칭(alias) 기반 URL 접근
-- **PIN 코드 인증**: 디바이스별 4자리 PIN 코드로 보안 접근
-- **온라인/오프라인 상태 관리**
+- 디바이스 등록/수정/삭제
+- 별칭(alias) 기반 접근
+- 디바이스별 PIN 인증
+- 온라인/오프라인 상태 및 heartbeat 처리
 
-### 사용자 관리
-- **멀티테넌시**: 사용자별 독립적인 디바이스 및 콘텐츠 관리
-- **회원가입 승인 시스템**: 슈퍼관리자 승인 후 이용 가능
-- **역할 기반 접근 제어**: 일반 사용자 / 슈퍼관리자
+### 사용자/권한
+- 회원가입 후 승인 워크플로우(`pending`, `approved`, `rejected`)
+- 역할 분리: `user`, `superadmin`
+- 슈퍼관리자 전용 사용자/권한/디바이스 승인 관리 페이지 제공
+- 환자 관리 메뉴는 **슈퍼관리자 계정에서만 노출**
 
-### 알림 시스템
-- **긴급 알림 브로드캐스트**: 선택된 디바이스에 실시간 알림 전송
-- **자동 만료**: 시간 기반 알림 자동 닫기
+### 운영 기능
+- 공지사항 관리
+- 긴급 알림 전송/닫기
+- 스케줄 조회 캘린더(한국 공휴일 포함)
+  - 2026년부터 제헌절(7/17) 반영
+  - 대체공휴일 계산 반영
 
 ## 기술 스택
 
-- **프론트엔드**: Next.js 15, React 19, Tailwind CSS
-- **백엔드**: Next.js API Routes, Middleware
-- **데이터베이스**: SQLite (better-sqlite3)
-- **실시간 통신**: WebSocket (ws 라이브러리)
-- **인증**: bcryptjs (비밀번호 해싱), 세션 기반 인증
+- Frontend: Next.js 15, React 19, Tailwind CSS 4
+- Backend: Next.js App Router API Routes
+- DB: MariaDB (`mysql2`)
+- Realtime: `ws` WebSocket 서버(별도 실행)
+- Auth: JWT(`jose`) + HttpOnly 쿠키
+- Mail(옵션): Nodemailer SMTP
 
-## 프로젝트 구조
+## 요구 사항
 
-```
-/src
-├── app/                    # App Router 기반 페이지
-│   ├── admin/             # 관리자 페이지
-│   ├── superadmin/        # 슈퍼관리자 페이지
-│   ├── display/[deviceId]/ # 디바이스 디스플레이 페이지
-│   ├── initialize-device/  # 디바이스 연결 페이지
-│   ├── login/             # 로그인 페이지
-│   ├── register/          # 회원가입 페이지
-│   └── api/               # API 라우트
-│       ├── auth/          # 인증 API
-│       ├── devices/       # 디바이스 API
-│       ├── contents/      # 콘텐츠 API
-│       ├── alerts/        # 알림 API
-│       └── superadmin/    # 슈퍼관리자 API
-├── components/            # 재사용 가능한 UI 컴포넌트
-│   ├── admin/            # 관리자 컴포넌트
-│   └── display/          # 디스플레이 컴포넌트
-├── lib/                   # 유틸리티 및 공통 로직
-│   ├── wsServer.ts       # WebSocket 서버
-│   ├── alertStore.ts     # 알림 저장소
-│   └── auth.ts           # 인증 유틸리티
-├── types/                 # TypeScript 타입 정의
-└── middleware.ts          # Next.js 미들웨어 (인증 처리)
+- Node.js 20+
+- npm
+- MariaDB 10.6+ (또는 호환 MySQL)
 
-/data
-└── signage.db            # SQLite 데이터베이스
+## 환경변수
 
-/public
-└── uploads/              # 업로드된 미디어 파일
+루트에 `.env` 파일을 만들고 아래 값을 설정하세요.
+
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=signage
+DB_PASSWORD=
+DB_NAME=signage_db
+
+# Auth
+JWT_SECRET=change-this-secret
+
+# Bootstrap superadmin password (db:init 시 사용)
+SUPERADMIN_PASSWORD=admin1234
+
+# Optional: base URL (메일 링크 생성용)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# Optional: SMTP
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+SERVICE_NAME=디지털 사이니지 시스템
 ```
 
 ## 시작하기
 
-### 1. 저장소 클론
-
-```bash
-git clone https://github.com/yourusername/digital-signage-system.git
-cd digital-signage-system
-```
-
-### 2. 의존성 설치
+### 1. 의존성 설치
 
 ```bash
 npm install
 ```
 
-### 3. 데이터베이스 초기화
+### 2. DB 초기화
 
 ```bash
-node scripts/init-db.js
+npm run db:init
 ```
 
-이 스크립트는 SQLite 데이터베이스를 생성하고 필요한 테이블을 초기화합니다.
-기본 슈퍼관리자 계정이 생성됩니다:
+초기화 시 기본 슈퍼관리자 계정이 생성됩니다.
 - 아이디: `superadmin`
-- 비밀번호: `admin1234`
+- 비밀번호: `SUPERADMIN_PASSWORD` (미설정 시 `admin1234`)
 
-### 4. 개발 서버 실행
+### 3. 개발 서버 실행
+
+웹/WS를 함께 실행:
 
 ```bash
-npm run dev
+npm run dev:all
 ```
 
-브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어 확인하세요.
+네트워크 바인딩(외부 접속) 필요 시:
 
-## 사용 방법
+```bash
+npm run dev:all:host
+```
 
-### 1. 로그인
-- 슈퍼관리자 계정으로 로그인하거나 새 계정을 등록합니다.
-- 새 계정은 슈퍼관리자 승인 후 사용 가능합니다.
+## 접속 경로
 
-### 2. 디바이스 등록
-- 관리자 페이지에서 새 디바이스를 등록합니다.
-- 별칭(alias)는 영문 소문자, 숫자, 하이픈만 사용 가능합니다.
-- 4자리 PIN 코드를 설정합니다.
+- 홈: `http://localhost:3000/`
+- 로그인: `http://localhost:3000/login`
+- 관리자: `http://localhost:3000/admin`
+- 슈퍼관리자: `http://localhost:3000/superadmin`
+- 디바이스 연결: `http://localhost:3000/initialize-device`
+- 디스플레이: `http://localhost:3000/display/{deviceIdOrAlias}`
 
-### 3. 콘텐츠 추가
-- 텍스트, 이미지, 비디오, YouTube 영상을 추가할 수 있습니다.
-- 복합형 콘텐츠로 여러 타입을 조합할 수 있습니다.
-- 분할 레이아웃으로 왼쪽 콘텐츠와 오른쪽 정보 패널을 구성할 수 있습니다.
+## 포트
 
-### 4. 디바이스 연결
-- `/initialize-device` 페이지에서 디바이스를 선택합니다.
-- PIN 코드를 입력하여 인증합니다.
-- 디스플레이 페이지에서 콘텐츠가 자동으로 순환 표시됩니다.
+- Next.js 웹 서버: `3000`
+- WebSocket 서버: `3031`
+- HTTP 브로드캐스트 서버: `3032`
 
-### 5. 알림 전송
-- 관리자 페이지에서 긴급 알림을 전송할 수 있습니다.
-- 대상 디바이스를 선택하고 메시지를 입력합니다.
-- 알림은 실시간으로 해당 디바이스에 표시됩니다.
+## 주요 npm 스크립트
 
-## API 포트
+- `npm run dev`: Next.js 개발 서버
+- `npm run ws-server`: WebSocket/브로드캐스트 서버
+- `npm run dev:all`: 웹 + WS 동시 실행
+- `npm run build`: 프로덕션 빌드
+- `npm run start`: 프로덕션 실행
+- `npm run lint`: ESLint 실행
+- `npm run test:smoke`: 스모크 테스트(Puppeteer)
 
-- **웹 서버**: 3000
-- **WebSocket 서버**: 3031
-- **HTTP 브로드캐스트**: 3032
+## 프로젝트 구조(요약)
+
+```text
+src/
+  app/
+    admin/
+    superadmin/
+    display/[deviceId]/
+    initialize-device/
+    api/
+  components/
+    admin/
+    display/
+  lib/
+    auth.ts
+    db.ts
+    wsServer.ts
+    email.ts
+  middleware.ts
+scripts/
+  init-db.js
+  full-smoke-test.js
+wsServerEntry.ts
+```
 
 ## 라이선스
 
-MIT License
+MIT

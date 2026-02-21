@@ -10,19 +10,21 @@ import PatientManager from '@/components/admin/PatientManager';
 import NoticeManager from '@/components/admin/NoticeManager';
 import ContentLibrary from '@/components/admin/ContentLibrary';
 import DeviceContentLinker from '@/components/admin/DeviceContentLinker';
+import ScheduleViewer from '@/components/admin/ScheduleViewer';
 
 type AlertForm = {
   message: string;
   targetDeviceIds: string[];
 };
 
-type TabType = 'devices' | 'content' | 'library' | 'linker' | 'patient' | 'notice' | 'alert';
+type TabType = 'devices' | 'content' | 'library' | 'linker' | 'schedule' | 'patient' | 'notice' | 'alert';
 
 const TABS: { id: TabType; label: string; icon: string }[] = [
   { id: 'devices', label: '내 디바이스', icon: '📺' },
   { id: 'content', label: '콘텐츠 관리', icon: '🖼️' },
   { id: 'library', label: '콘텐츠 라이브러리', icon: '📚' },
   { id: 'linker', label: '콘텐츠 연결', icon: '🔗' },
+  { id: 'schedule', label: '스케줄 조회', icon: '📅' },
   { id: 'patient', label: '환자 관리', icon: '👥' },
   { id: 'notice', label: '공지사항', icon: '📢' },
   { id: 'alert', label: '긴급 알림', icon: '🔔' },
@@ -49,6 +51,9 @@ export default function AdminDashboard() {
   // 디바이스 한도 관련
   const [userMaxDevices, setUserMaxDevices] = useState<number>(3);
   const [isOverLimitRequest, setIsOverLimitRequest] = useState(false);
+  const availableTabs = userRole === 'superadmin'
+    ? TABS
+    : TABS.filter((tab) => tab.id !== 'patient');
 
   const fetchDevices = async () => {
     try {
@@ -82,6 +87,12 @@ export default function AdminDashboard() {
     fetchUserRole();
     fetch('/api/websocket').catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (userRole !== 'superadmin' && activeTab === 'patient') {
+      setActiveTab('devices');
+    }
+  }, [userRole, activeTab]);
 
   const handleLogout = async () => {
     try {
@@ -417,7 +428,13 @@ export default function AdminDashboard() {
       case 'linker':
         return <DeviceContentLinker />;
 
+      case 'schedule':
+        return <ScheduleViewer />;
+
       case 'patient':
+        if (userRole !== 'superadmin') {
+          return null;
+        }
         return (
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-teal-100">
             <div className="flex items-center space-x-3 mb-5">
@@ -636,7 +653,7 @@ export default function AdminDashboard() {
       <div className="bg-white/60 backdrop-blur-sm border-b border-teal-100 sticky top-[76px] z-10">
         <div className="max-w-[1920px] mx-auto px-6">
           <div className="flex space-x-1 overflow-x-auto py-2">
-            {TABS.map((tab) => (
+            {availableTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
