@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { queryOne, queryAll, execute } from '@/lib/db';
+import { ensureNoticeSchema } from '@/lib/noticeSchema';
 
 // UUID 형식인지 확인하는 함수
 function isUUID(str: string): boolean {
@@ -24,10 +25,13 @@ export async function GET(
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
+    await ensureNoticeSchema();
+
     const { deviceId: deviceIdOrAlias } = await params;
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     const search = searchParams.get('search');
+    const forDisplay = searchParams.get('forDisplay') === '1';
 
     const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
@@ -40,6 +44,12 @@ export async function GET(
     let query = 'SELECT * FROM device_notices WHERE device_id = ?';
     const queryParams: any[] = [deviceId];
 
+    if (forDisplay) {
+      const now = new Date().toISOString();
+      query += ' AND active = 1 AND (startAt IS NULL OR startAt <= ?) AND (endAt IS NULL OR endAt >= ?)';
+      queryParams.push(now, now);
+    }
+
     if (category && category !== 'all') {
       query += ' AND category = ?';
       queryParams.push(category);
@@ -50,7 +60,7 @@ export async function GET(
       queryParams.push(`%${search}%`, `%${search}%`);
     }
 
-    query += ' ORDER BY favorite DESC, lastUsedAt DESC, createdAt DESC';
+    query += ' ORDER BY priority DESC, favorite DESC, lastUsedAt DESC, createdAt DESC';
 
     const notices = await queryAll(query, queryParams);
 
@@ -70,8 +80,10 @@ export async function POST(
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
+    await ensureNoticeSchema();
+
     const { deviceId: deviceIdOrAlias } = await params;
-    const { title, content, category } = await req.json();
+    const { title, content, category, active, priority, startAt, endAt } = await req.json();
 
     if (!title || !content) {
       return NextResponse.json(
@@ -93,8 +105,8 @@ export async function POST(
 
     await execute(`
       INSERT INTO device_notices (
-        id, device_id, title, content, category, favorite, usageCount, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, device_id, title, content, category, favorite, usageCount, active, priority, startAt, endAt, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       noticeId,
       deviceId,
@@ -103,6 +115,10 @@ export async function POST(
       category || null,
       0,
       0,
+      active === undefined ? 1 : (active ? 1 : 0),
+      Number.isFinite(Number(priority)) ? Number(priority) : 0,
+      startAt || null,
+      endAt || null,
       now,
       now
     ]);

@@ -3,6 +3,7 @@
 import { useEffect, useState, use, useRef } from "react";
 import type { devicecontent as DeviceContent } from "@/types/device";
 import MixedContentDisplay from "@/components/MixedContentDisplay";
+import YoutubePlayer from "@/components/YoutubePlayer";
 import { filterContentsBySchedule } from "@/lib/scheduleUtils";
 import PinCodeModal from "@/components/display/PinCodeModal";
 
@@ -13,6 +14,29 @@ type Alert = {
   createdAt: string;
   expiresAt?: string;
   duration?: number;
+};
+
+type DeviceNotice = {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  priority?: number;
+};
+
+type DisplaySettings = {
+  notice_enabled: number;
+  notice_default_mode: 'ticker' | 'side_panel' | 'popup_cycle';
+  notice_item_duration_sec: number;
+  notice_max_items: number;
+};
+
+const normalizeDurationMs = (content: DeviceContent): number => {
+  const raw = Number(content.duration) || 0;
+  if (raw <= 0) return 0;
+
+  // 라이브러리(content 테이블)는 초 단위, 기존 devicecontent는 ms 단위를 사용하므로 보정
+  return raw < 1000 ? raw * 1000 : raw;
 };
 
 export default function DevicePreviewPage({ params }: { params: Promise<{ deviceId: string }> }) {
@@ -27,6 +51,31 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   const [loading, setLoading] = useState(true);
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [checkingPin, setCheckingPin] = useState(true);
+  const [notices, setNotices] = useState<DeviceNotice[]>([]);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>({
+    notice_enabled: 1,
+    notice_default_mode: 'ticker',
+    notice_item_duration_sec: 8,
+    notice_max_items: 3,
+  });
+  const [noticeIndex, setNoticeIndex] = useState(0);
+
+  const updateDeviceStatus = async (status: 'online' | 'offline') => {
+    if (!realDeviceId) return;
+    try {
+      await fetch(`/api/devices/${realDeviceId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status,
+          lastConnected: new Date().toISOString(),
+        }),
+        keepalive: true,
+      });
+    } catch (error) {
+      console.error('[Device Status] 상태 업데이트 실패:', error);
+    }
+  };
 
   // PIN 검증 상태 확인
   useEffect(() => {
@@ -40,6 +89,45 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   const handlePinSuccess = (deviceName: string) => {
     setIsPinVerified(true);
   };
+
+  // 디바이스 온라인/오프라인 상태 갱신
+  useEffect(() => {
+    if (!realDeviceId || !isPinVerified) return;
+
+    updateDeviceStatus('online');
+
+    const heartbeat = setInterval(() => {
+      updateDeviceStatus('online');
+    }, 30000);
+
+    const sendOfflineStatus = () => {
+      const payload = JSON.stringify({
+        status: 'offline',
+        lastConnected: new Date().toISOString(),
+      });
+      const url = `/api/devices/${realDeviceId}/status`;
+
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      } else {
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', sendOfflineStatus);
+
+    return () => {
+      clearInterval(heartbeat);
+      window.removeEventListener('beforeunload', sendOfflineStatus);
+      sendOfflineStatus();
+    };
+  }, [realDeviceId, isPinVerified]);
 
   // WebSocket 연결 및 알림 수신
   useEffect(() => {
@@ -184,12 +272,15 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     const updateFilteredContents = () => {
       const now = new Date();
       const filtered = filterContentsBySchedule(allContents, now);
-      setContents(filtered);
+      setContents((prev) => {
+        const same =
+          prev.length === filtered.length &&
+          prev.every((item, idx) => item.id === filtered[idx]?.id);
+        return same ? prev : filtered;
+      });
 
       // 현재 인덱스가 필터링된 콘텐츠 범위를 벗어나면 0으로 리셋
-      if (filtered.length > 0 && currentContentIndex >= filtered.length) {
-        setCurrentContentIndex(0);
-      }
+      setCurrentContentIndex((prevIndex) => (filtered.length > 0 && prevIndex >= filtered.length ? 0 : prevIndex));
     };
 
     // 초기 필터링
@@ -198,15 +289,65 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     // 1분마다 필터링 업데이트
     const filterInterval = setInterval(updateFilteredContents, 60000);
     return () => clearInterval(filterInterval);
-  }, [allContents, currentContentIndex]);
+  }, [allContents]);
+
+  useEffect(() => {
+    if (!isPinVerified) return;
+
+    const fetchNoticeOverlayData = async () => {
+      try {
+        const [noticeRes, settingsRes] = await Promise.all([
+          fetch(`/api/devices/${deviceId}/notices?forDisplay=1`),
+          fetch(`/api/devices/${deviceId}/display-settings`),
+        ]);
+
+        if (noticeRes.ok) {
+          const noticeData = await noticeRes.json();
+          setNotices(Array.isArray(noticeData) ? noticeData : []);
+        }
+
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          setDisplaySettings({
+            notice_enabled: settingsData.notice_enabled ?? 1,
+            notice_default_mode: settingsData.notice_default_mode ?? 'ticker',
+            notice_item_duration_sec: settingsData.notice_item_duration_sec ?? 8,
+            notice_max_items: settingsData.notice_max_items ?? 3,
+          });
+        }
+      } catch (error) {
+        console.error('공지 오버레이 데이터 조회 오류:', error);
+      }
+    };
+
+    fetchNoticeOverlayData();
+    const timer = setInterval(fetchNoticeOverlayData, 60000);
+    return () => clearInterval(timer);
+  }, [deviceId, isPinVerified]);
+
+  useEffect(() => {
+    if (!displaySettings.notice_enabled || notices.length <= 1) return;
+    const intervalMs = Math.max(3, displaySettings.notice_item_duration_sec) * 1000;
+    const timer = setInterval(() => {
+      setNoticeIndex(prev => (prev + 1) % notices.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [displaySettings.notice_enabled, displaySettings.notice_item_duration_sec, notices.length]);
 
   // 콘텐츠 순환 표시
   useEffect(() => {
     if (contents.length === 0) return;
     const currentContent = contents[currentContentIndex];
+    const durationMs = normalizeDurationMs(currentContent);
+
+    // 동영상 duration이 0이면 재생 종료 이벤트로 다음 콘텐츠 이동
+    if (currentContent.type === 'video' && durationMs === 0) {
+      return;
+    }
+
     const timer = setTimeout(() => {
       setCurrentContentIndex((prevIndex) => (prevIndex + 1) % contents.length);
-    }, currentContent.duration);
+    }, durationMs);
     return () => clearTimeout(timer);
   }, [currentContentIndex, contents]);
 
@@ -255,6 +396,10 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   }
 
   const currentContent = contents[currentContentIndex];
+  const currentDurationMs = normalizeDurationMs(currentContent);
+  const visibleNotices = notices.slice(0, Math.max(1, displaySettings.notice_max_items));
+  const currentNotice = visibleNotices.length > 0 ? visibleNotices[noticeIndex % visibleNotices.length] : null;
+  const shouldShowNoticeOverlay = !alert && displaySettings.notice_enabled === 1 && visibleNotices.length > 0;
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center relative">
@@ -303,17 +448,54 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
           </div>
         ) : (
           <div className="w-full h-screen flex items-center justify-center">
-            <video
-              src={currentContent.url}
-              className="max-w-full max-h-full"
-              autoPlay={currentContent.autoplay}
-              loop={currentContent.loop}
-              muted={currentContent.muted}
-              controls={!currentContent.autoplay}
-            />
+            {currentContent.url?.startsWith('youtube:') ? (
+              <div className="w-full h-full">
+                <YoutubePlayer
+                  videoId={currentContent.url.replace('youtube:', '')}
+                  autoplay={currentContent.autoplay !== false}
+                  loop={currentContent.loop !== false}
+                  mute={currentContent.muted !== false}
+                />
+              </div>
+            ) : (
+              <video
+                src={currentContent.url}
+                className="max-w-full max-h-full"
+                autoPlay={currentContent.autoplay !== false}
+                loop={currentDurationMs === 0 ? false : currentContent.loop !== false}
+                muted={currentContent.muted !== false}
+                controls={!currentContent.autoplay}
+                onEnded={
+                  currentDurationMs === 0
+                    ? () => setCurrentContentIndex((prevIndex) => (prevIndex + 1) % contents.length)
+                    : undefined
+                }
+              />
+            )}
           </div>
         )}
       </div>
+      {shouldShowNoticeOverlay && (
+        displaySettings.notice_default_mode === 'side_panel' ? (
+          <div className="absolute top-4 right-4 z-30 w-[28rem] max-h-[40vh] bg-black/70 backdrop-blur-sm border border-cyan-400/60 rounded-xl p-4 text-white">
+            <div className="text-sm text-cyan-300 mb-2">공지사항</div>
+            <div className="text-lg font-semibold leading-snug">{currentNotice?.title}</div>
+            <div className="mt-2 text-sm whitespace-pre-wrap break-words text-white/90">{currentNotice?.content}</div>
+          </div>
+        ) : displaySettings.notice_default_mode === 'popup_cycle' ? (
+          <div className="absolute top-6 right-6 z-30 max-w-[30rem] bg-white/95 border border-cyan-400 shadow-2xl rounded-xl p-4">
+            <div className="text-xs text-cyan-700 mb-1">공지</div>
+            <div className="font-bold text-gray-900">{currentNotice?.title}</div>
+            <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap break-words">{currentNotice?.content}</div>
+          </div>
+        ) : (
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/80 border-t border-cyan-400/60 px-6 py-3 text-white">
+            <div className="text-sm font-semibold">
+              📢 {currentNotice?.title}: <span className="font-normal">{currentNotice?.content}</span>
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 }

@@ -22,8 +22,8 @@ type TabType = 'devices' | 'content' | 'library' | 'linker' | 'schedule' | 'pati
 const TABS: { id: TabType; label: string; icon: string }[] = [
   { id: 'devices', label: '내 디바이스', icon: '📺' },
   { id: 'content', label: '콘텐츠 관리', icon: '🖼️' },
-  { id: 'library', label: '콘텐츠 라이브러리', icon: '📚' },
   { id: 'linker', label: '콘텐츠 연결', icon: '🔗' },
+  { id: 'library', label: '콘텐츠 라이브러리', icon: '📚' },
   { id: 'schedule', label: '스케줄 조회', icon: '📅' },
   { id: 'patient', label: '환자 관리', icon: '👥' },
   { id: 'notice', label: '공지사항', icon: '📢' },
@@ -452,8 +452,8 @@ export default function AdminDashboard() {
       case 'notice':
         return (
           <NoticeManager
-            onSendNotice={(content) => {
-              setAlertForm({ ...alertForm, message: content });
+            onSendNotice={(content, deviceId) => {
+              setAlertForm({ message: content, targetDeviceIds: [deviceId] });
               setActiveTab('alert');
             }}
           />

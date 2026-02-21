@@ -329,6 +329,10 @@ async function initDB() {
       content TEXT NOT NULL,
       category VARCHAR(50),
       favorite TINYINT(1) DEFAULT 0,
+      active TINYINT(1) DEFAULT 1,
+      priority INT DEFAULT 0,
+      startAt VARCHAR(30),
+      endAt VARCHAR(30),
       lastUsedAt VARCHAR(30),
       usageCount INT DEFAULT 0,
       createdAt VARCHAR(30) NOT NULL,
@@ -339,6 +343,40 @@ async function initDB() {
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
   `);
   console.log('✅ device_notices 테이블 생성/확인 완료');
+
+  // device_notices 컬럼 마이그레이션
+  if (await tableExists('device_notices') && !(await columnExists('device_notices', 'active'))) {
+    await pool.query("ALTER TABLE device_notices ADD COLUMN active TINYINT(1) DEFAULT 1");
+    console.log('✅ device_notices 테이블에 active 컬럼 추가 완료');
+  }
+  if (await tableExists('device_notices') && !(await columnExists('device_notices', 'priority'))) {
+    await pool.query("ALTER TABLE device_notices ADD COLUMN priority INT DEFAULT 0");
+    console.log('✅ device_notices 테이블에 priority 컬럼 추가 완료');
+  }
+  if (await tableExists('device_notices') && !(await columnExists('device_notices', 'startAt'))) {
+    await pool.query("ALTER TABLE device_notices ADD COLUMN startAt VARCHAR(30)");
+    console.log('✅ device_notices 테이블에 startAt 컬럼 추가 완료');
+  }
+  if (await tableExists('device_notices') && !(await columnExists('device_notices', 'endAt'))) {
+    await pool.query("ALTER TABLE device_notices ADD COLUMN endAt VARCHAR(30)");
+    console.log('✅ device_notices 테이블에 endAt 컬럼 추가 완료');
+  }
+
+  // ============================
+  // 9-2. device_display_settings 테이블 생성 (디바이스별 공지 표시 설정)
+  // ============================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device_display_settings (
+      device_id VARCHAR(36) PRIMARY KEY,
+      notice_enabled TINYINT(1) DEFAULT 1,
+      notice_default_mode VARCHAR(20) DEFAULT 'ticker',
+      notice_item_duration_sec INT DEFAULT 8,
+      notice_max_items INT DEFAULT 3,
+      updatedAt VARCHAR(30) NOT NULL,
+      FOREIGN KEY (device_id) REFERENCES device(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+  `);
+  console.log('✅ device_display_settings 테이블 생성/확인 완료');
 
   // ============================
   // 10. 기존 device_accounts, device_sessions 테이블 삭제

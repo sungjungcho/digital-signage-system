@@ -63,6 +63,14 @@ export async function middleware(request: NextRequest) {
   if (request.method === 'GET' && pathname.match(/^\/api\/devices\/[^/]+\/contents$/)) {
     return NextResponse.next();
   }
+  // GET /api/devices/:deviceIdOrAlias/notices (디스플레이 공지 오버레이)
+  if (request.method === 'GET' && pathname.match(/^\/api\/devices\/[^/]+\/notices$/)) {
+    return NextResponse.next();
+  }
+  // GET /api/devices/:deviceIdOrAlias/display-settings (디스플레이 설정)
+  if (request.method === 'GET' && pathname.match(/^\/api\/devices\/[^/]+\/display-settings$/)) {
+    return NextResponse.next();
+  }
   // POST /api/devices/:deviceId/status (디스플레이 heartbeat)
   if (request.method === 'POST' && pathname.match(/^\/api\/devices\/[^/]+\/status$/)) {
     return NextResponse.next();

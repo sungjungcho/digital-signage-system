@@ -13,6 +13,9 @@ type Notice = {
   createdAt: string;
   updatedAt: string;
   device_id?: string;
+  deviceName?: string;
+  active?: number;
+  priority?: number;
 };
 
 type Device = {
@@ -31,8 +34,17 @@ const CATEGORIES = [
 ];
 
 type NoticeManagerProps = {
-  onSendNotice: (content: string) => void;
+  onSendNotice: (content: string, deviceId: string) => void;
 };
+
+type DisplaySettings = {
+  notice_enabled: number;
+  notice_default_mode: 'ticker' | 'side_panel' | 'popup_cycle';
+  notice_item_duration_sec: number;
+  notice_max_items: number;
+};
+
+const ALL_DEVICES = '__all__';
 
 export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -44,6 +56,13 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>({
+    notice_enabled: 1,
+    notice_default_mode: 'ticker',
+    notice_item_duration_sec: 8,
+    notice_max_items: 3,
+  });
 
   // 새 공지사항 입력 state
   const [newTitle, setNewTitle] = useState('');
@@ -85,14 +104,37 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
         params.append('search', searchQuery);
       }
 
-      const response = await fetch(`/api/devices/${selectedDeviceId}/notices?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNotices(data);
-        setFilteredNotices(data);
+      if (selectedDeviceId === ALL_DEVICES) {
+        const responses = await Promise.all(
+          devices.map(async (device) => {
+            const response = await fetch(`/api/devices/${device.id}/notices?${params.toString()}`);
+            if (!response.ok) return [];
+            const data = await response.json();
+            return (Array.isArray(data) ? data : []).map((notice: Notice) => ({
+              ...notice,
+              device_id: notice.device_id || device.id,
+              deviceName: device.name,
+            }));
+          })
+        );
+        const merged = responses.flat();
+        setNotices(merged);
+        setFilteredNotices(merged);
       } else {
-        setNotices([]);
-        setFilteredNotices([]);
+        const response = await fetch(`/api/devices/${selectedDeviceId}/notices?${params.toString()}`);
+        if (response.ok) {
+          const data = await response.json();
+          const selectedDeviceName = devices.find(d => d.id === selectedDeviceId)?.name;
+          const normalized = (Array.isArray(data) ? data : []).map((notice: Notice) => ({
+            ...notice,
+            deviceName: selectedDeviceName,
+          }));
+          setNotices(normalized);
+          setFilteredNotices(normalized);
+        } else {
+          setNotices([]);
+          setFilteredNotices([]);
+        }
       }
     } catch (error) {
       console.error('공지사항 목록 가져오기 오류:', error);
@@ -108,12 +150,70 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
       setNotices([]);
       setFilteredNotices([]);
     }
-  }, [selectedDeviceId, selectedCategory, searchQuery]);
+  }, [selectedDeviceId, selectedCategory, searchQuery, devices]);
+
+  useEffect(() => {
+    const fetchDisplaySettings = async () => {
+      if (!selectedDeviceId || selectedDeviceId === ALL_DEVICES) return;
+      setSettingsLoading(true);
+      try {
+        const response = await fetch(`/api/devices/${selectedDeviceId}/display-settings`);
+        if (!response.ok) return;
+        const data = await response.json();
+        setDisplaySettings({
+          notice_enabled: data.notice_enabled ?? 1,
+          notice_default_mode: data.notice_default_mode ?? 'ticker',
+          notice_item_duration_sec: data.notice_item_duration_sec ?? 8,
+          notice_max_items: data.notice_max_items ?? 3,
+        });
+      } catch (error) {
+        console.error('공지 표시 설정 조회 오류:', error);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+    fetchDisplaySettings();
+  }, [selectedDeviceId]);
+
+  const handleApplyDisplaySettings = async () => {
+    if (!selectedDeviceId || selectedDeviceId === ALL_DEVICES) return;
+    try {
+      const saveResponse = await fetch(`/api/devices/${selectedDeviceId}/display-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(displaySettings),
+      });
+
+      if (!saveResponse.ok) {
+        const error = await saveResponse.json();
+        alert(error.error || '설정 저장에 실패했습니다.');
+        return;
+      }
+
+      const applyResponse = await fetch(`/api/devices/${selectedDeviceId}/apply-display-settings`, {
+        method: 'POST',
+      });
+
+      if (applyResponse.ok) {
+        alert('설정이 저장되었고 디바이스에 즉시 적용되었습니다.');
+      } else {
+        const error = await applyResponse.json();
+        alert(error.error || '디바이스 적용에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('공지 표시 설정 즉시 적용 오류:', error);
+      alert('즉시 적용 중 오류가 발생했습니다.');
+    }
+  };
 
   // 공지사항 추가
   const handleAddNotice = async () => {
     if (!selectedDeviceId) {
       alert('먼저 디바이스를 선택해주세요.');
+      return;
+    }
+    if (selectedDeviceId === ALL_DEVICES) {
+      alert('전체 선택 상태에서는 등록할 수 없습니다. 특정 디바이스를 선택해주세요.');
       return;
     }
 
@@ -150,9 +250,14 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
   // 공지사항 수정
   const handleUpdateNotice = async () => {
     if (!editingNotice || !selectedDeviceId) return;
+    const targetDeviceId = selectedDeviceId === ALL_DEVICES ? editingNotice.device_id : selectedDeviceId;
+    if (!targetDeviceId) {
+      alert('공지 대상 디바이스를 확인할 수 없습니다.');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/devices/${selectedDeviceId}/notices/${editingNotice.id}`, {
+      const response = await fetch(`/api/devices/${targetDeviceId}/notices/${editingNotice.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,11 +280,16 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
   };
 
   // 공지사항 삭제
-  const handleDeleteNotice = async (noticeId: string) => {
+  const handleDeleteNotice = async (notice: Notice) => {
     if (!confirm('이 공지사항을 삭제하시겠습니까?')) return;
+    const targetDeviceId = selectedDeviceId === ALL_DEVICES ? notice.device_id : selectedDeviceId;
+    if (!targetDeviceId) {
+      alert('공지 대상 디바이스를 확인할 수 없습니다.');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/devices/${selectedDeviceId}/notices/${noticeId}`, {
+      const response = await fetch(`/api/devices/${targetDeviceId}/notices/${notice.id}`, {
         method: 'DELETE',
       });
 
@@ -196,9 +306,11 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
   // 즐겨찾기 토글
   const handleToggleFavorite = async (notice: Notice) => {
     if (!selectedDeviceId) return;
+    const targetDeviceId = selectedDeviceId === ALL_DEVICES ? notice.device_id : selectedDeviceId;
+    if (!targetDeviceId) return;
 
     try {
-      const response = await fetch(`/api/devices/${selectedDeviceId}/notices/${notice.id}`, {
+      const response = await fetch(`/api/devices/${targetDeviceId}/notices/${notice.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,15 +330,43 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
   // 공지사항을 긴급 알림으로 전송
   const handleSendAsAlert = async (notice: Notice) => {
     if (!selectedDeviceId) return;
+    const targetDeviceId = selectedDeviceId === ALL_DEVICES ? notice.device_id : selectedDeviceId;
+    if (!targetDeviceId) return;
 
     // 사용 기록 업데이트
-    await fetch(`/api/devices/${selectedDeviceId}/notices/${notice.id}`, {
+    await fetch(`/api/devices/${targetDeviceId}/notices/${notice.id}`, {
       method: 'PATCH',
     });
 
     // 긴급 알림으로 전송
-    onSendNotice(notice.content);
+    onSendNotice(notice.content, targetDeviceId);
     fetchNotices();
+  };
+
+  const handleCancelNotices = async () => {
+    if (!selectedDeviceId || selectedDeviceId === ALL_DEVICES) return;
+    if (!confirm('해당 디바이스의 등록 공지를 모두 취소하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/devices/${selectedDeviceId}/notices`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || '공지 취소에 실패했습니다.');
+        return;
+      }
+
+      await fetch(`/api/devices/${selectedDeviceId}/apply-display-settings`, {
+        method: 'POST',
+      });
+
+      alert('해당 디바이스의 등록 공지가 취소되었습니다.');
+      fetchNotices();
+    } catch (error) {
+      console.error('공지 취소 오류:', error);
+      alert('공지 취소 중 오류가 발생했습니다.');
+    }
   };
 
   if (loading) {
@@ -255,6 +395,7 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
           className="w-full md:w-1/2 h-[42px] px-3 py-2 border rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
         >
           <option value="">-- 디바이스를 선택하세요 --</option>
+          <option value={ALL_DEVICES}>전체 디바이스</option>
           {devices.map(device => (
             <option key={device.id} value={device.id}>
               {device.name} {device.alias ? `(${device.alias})` : ''}
@@ -265,6 +406,75 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
 
       {selectedDeviceId ? (
         <>
+          {selectedDeviceId !== ALL_DEVICES && (
+          <div className="mb-4 p-4 bg-cyan-50 border border-cyan-200 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-base font-semibold text-cyan-900">디스플레이 공지 표시 방식</h4>
+              {settingsLoading && <span className="text-sm text-cyan-700">불러오는 중...</span>}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-sm text-gray-700">
+                표시 모드
+                <select
+                  value={displaySettings.notice_default_mode}
+                  onChange={(e) => setDisplaySettings(prev => ({ ...prev, notice_default_mode: e.target.value as DisplaySettings['notice_default_mode'] }))}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="ticker">하단 티커</option>
+                  <option value="side_panel">우측 패널</option>
+                  <option value="popup_cycle">팝업 순환</option>
+                </select>
+              </label>
+              <label className="text-sm text-gray-700">
+                항목 노출 시간(초)
+                <input
+                  type="number"
+                  min={3}
+                  max={60}
+                  value={displaySettings.notice_item_duration_sec}
+                  onChange={(e) => setDisplaySettings(prev => ({ ...prev, notice_item_duration_sec: parseInt(e.target.value, 10) || 8 }))}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </label>
+              <label className="text-sm text-gray-700">
+                최대 노출 개수
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={displaySettings.notice_max_items}
+                  onChange={(e) => setDisplaySettings(prev => ({ ...prev, notice_max_items: parseInt(e.target.value, 10) || 3 }))}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </label>
+              <label className="text-sm text-gray-700 flex items-end">
+                <span className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={displaySettings.notice_enabled === 1}
+                    onChange={(e) => setDisplaySettings(prev => ({ ...prev, notice_enabled: e.target.checked ? 1 : 0 }))}
+                  />
+                  공지 오버레이 사용
+                </span>
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleApplyDisplaySettings}
+                className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors"
+              >
+                공지 적용
+              </button>
+              <button
+                onClick={handleCancelNotices}
+                className="px-4 py-2 bg-rose-600 text-white rounded-md hover:bg-rose-700 transition-colors"
+              >
+                공지 취소
+              </button>
+            </div>
+          </div>
+          )}
+
           {/* 상단 컨트롤 */}
           <div className="flex gap-3 mb-4 flex-wrap">
             <button
@@ -421,6 +631,11 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
                           <span className="px-2 py-1 text-base font-medium bg-teal-100 text-teal-800 rounded">
                             {notice.category || '기타'}
                           </span>
+                          {selectedDeviceId === ALL_DEVICES && (
+                            <span className="px-2 py-1 text-base font-medium bg-indigo-100 text-indigo-800 rounded">
+                              {notice.deviceName || notice.device_id || '디바이스'}
+                            </span>
+                          )}
                           <h4 className="font-semibold text-gray-800">{notice.title}</h4>
                         </div>
                       </div>
@@ -447,10 +662,10 @@ export default function NoticeManager({ onSendNotice }: NoticeManagerProps) {
                             onClick={() => handleSendAsAlert(notice)}
                             className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
                           >
-                            전송
+                            긴급 전송
                           </button>
                           <button
-                            onClick={() => handleDeleteNotice(notice.id)}
+                            onClick={() => handleDeleteNotice(notice)}
                             className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                           >
                             삭제

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryOne, execute } from '@/lib/db';
+import { ensureNoticeSchema } from '@/lib/noticeSchema';
 
 // UUID 형식인지 확인하는 함수
 function isUUID(str: string): boolean {
@@ -23,8 +24,10 @@ export async function PUT(
   { params }: { params: Promise<{ deviceId: string; noticeId: string }> }
 ) {
   try {
+    await ensureNoticeSchema();
+
     const { deviceId: deviceIdOrAlias, noticeId } = await params;
-    const { title, content, category, favorite } = await req.json();
+    const { title, content, category, favorite, active, priority, startAt, endAt } = await req.json();
 
     const deviceId = await getDeviceId(deviceIdOrAlias);
     if (!deviceId) {
@@ -50,8 +53,19 @@ export async function PUT(
     const now = new Date().toISOString();
 
     await execute(
-      'UPDATE device_notices SET title = ?, content = ?, category = ?, favorite = ?, updatedAt = ? WHERE id = ?',
-      [title, content, category || null, favorite ? 1 : 0, now, noticeId]
+      'UPDATE device_notices SET title = ?, content = ?, category = ?, favorite = ?, active = ?, priority = ?, startAt = ?, endAt = ?, updatedAt = ? WHERE id = ?',
+      [
+        title,
+        content,
+        category || null,
+        favorite ? 1 : 0,
+        active === undefined ? 1 : (active ? 1 : 0),
+        Number.isFinite(Number(priority)) ? Number(priority) : 0,
+        startAt || null,
+        endAt || null,
+        now,
+        noticeId,
+      ]
     );
 
     const updatedNotice = await queryOne('SELECT * FROM device_notices WHERE id = ?', [noticeId]);
@@ -72,6 +86,8 @@ export async function DELETE(
   { params }: { params: Promise<{ deviceId: string; noticeId: string }> }
 ) {
   try {
+    await ensureNoticeSchema();
+
     const { deviceId: deviceIdOrAlias, noticeId } = await params;
 
     const deviceId = await getDeviceId(deviceIdOrAlias);
