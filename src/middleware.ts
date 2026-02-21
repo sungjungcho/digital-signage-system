@@ -37,6 +37,7 @@ export async function middleware(request: NextRequest) {
     '/register',
     '/api/auth/login',
     '/api/auth/register',
+    '/api/auth/check-username',
   ];
 
   if (publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'))) {
@@ -50,6 +51,20 @@ export async function middleware(request: NextRequest) {
 
   // PIN 검증 API - 공개 접근 허용
   if (pathname.match(/^\/api\/devices\/[^/]+\/verify-pin$/)) {
+    return NextResponse.next();
+  }
+
+  // 디스플레이 페이지에서 사용하는 API - 공개 접근 허용 (PIN은 클라이언트에서 검증)
+  // GET /api/devices/:deviceIdOrAlias
+  if (request.method === 'GET' && pathname.match(/^\/api\/devices\/[^/]+$/)) {
+    return NextResponse.next();
+  }
+  // GET /api/devices/:deviceIdOrAlias/contents
+  if (request.method === 'GET' && pathname.match(/^\/api\/devices\/[^/]+\/contents$/)) {
+    return NextResponse.next();
+  }
+  // POST /api/devices/:deviceId/status (디스플레이 heartbeat)
+  if (request.method === 'POST' && pathname.match(/^\/api\/devices\/[^/]+\/status$/)) {
     return NextResponse.next();
   }
 
