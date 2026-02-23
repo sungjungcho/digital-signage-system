@@ -55,6 +55,7 @@ async function initDB() {
       id VARCHAR(36) PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
       email VARCHAR(255) UNIQUE,
+      phone VARCHAR(20),
       password_hash VARCHAR(255) NOT NULL,
       role VARCHAR(20) NOT NULL DEFAULT 'user',
       status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -68,6 +69,12 @@ async function initDB() {
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
   `);
   console.log('✅ users 테이블 생성/확인 완료');
+
+  // phone 컬럼 추가 (기존 DB 마이그레이션)
+  if (await tableExists('users') && !(await columnExists('users', 'phone'))) {
+    await pool.query("ALTER TABLE users ADD COLUMN phone VARCHAR(20) AFTER email");
+    console.log('✅ users 테이블에 phone 컬럼 추가 완료');
+  }
 
   // ============================
   // 2. sessions 테이블 생성
