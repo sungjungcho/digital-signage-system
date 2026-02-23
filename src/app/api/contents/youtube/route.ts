@@ -54,12 +54,11 @@ function extractYoutubeInfo(url: string): { type: 'video' | 'playlist', id: stri
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { deviceId, url, autoplay, loop, mute, scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime } = body;
+    const { deviceId, url, name, duration, autoplay, loop, mute, scheduleType, specificDate, daysOfWeek, startDate, endDate, startTime, endTime } = body;
 
-
-    if (!deviceId || !url) {
+    if (!url) {
       return NextResponse.json(
-        { error: '디바이스 ID와 URL이 필요합니다.' },
+        { error: 'URL이 필요합니다.' },
         { status: 400 }
       );
     }
@@ -74,13 +73,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 현재 콘텐츠 개수 조회 (order 값 결정용)
-    const countResult = await queryOne<{ count: number }>(
-      'SELECT COUNT(*) as count FROM devicecontent WHERE deviceId = ?',
-      [deviceId]
-    );
-    const count = countResult?.count ?? 0;
-
     // 유튜브 정보를 JSON으로 저장
     const metadata = JSON.stringify({
       youtubeType: youtubeInfo.type,
@@ -94,7 +86,38 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const contentId = uuidv4();
 
-    // 콘텐츠 저장 (url 필드에 유튜브 정보 저장)
+    // deviceId가 없으면 콘텐츠 라이브러리(content 테이블)에 저장
+    if (!deviceId) {
+      await execute(`
+        INSERT INTO content (
+          id, name, type, url, duration, metadata, createdAt, updatedAt
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        contentId,
+        name || '유튜브 영상',
+        'video',
+        `youtube:${youtubeInfo.id}`,
+        duration || 0,
+        metadata,
+        now,
+        now
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        message: '유튜브 영상이 라이브러리에 추가되었습니다.',
+        youtubeInfo
+      });
+    }
+
+    // deviceId가 있으면 디바이스 콘텐츠(devicecontent 테이블)에 저장
+    const countResult = await queryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM devicecontent WHERE deviceId = ?',
+      [deviceId]
+    );
+    const count = countResult?.count ?? 0;
+
     await execute(`
       INSERT INTO devicecontent (
         id, deviceId, type, url, duration, metadata, \`order\`, active,
