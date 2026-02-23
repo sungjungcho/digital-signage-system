@@ -54,7 +54,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS users (
       id VARCHAR(36) PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
-      email VARCHAR(255) UNIQUE,
+      email VARCHAR(255),
       phone VARCHAR(20),
       password_hash VARCHAR(255) NOT NULL,
       role VARCHAR(20) NOT NULL DEFAULT 'user',
@@ -74,6 +74,17 @@ async function initDB() {
   if (await tableExists('users') && !(await columnExists('users', 'phone'))) {
     await pool.query("ALTER TABLE users ADD COLUMN phone VARCHAR(20) AFTER email");
     console.log('✅ users 테이블에 phone 컬럼 추가 완료');
+  }
+
+  // email UNIQUE 제약 제거 (기존 DB 마이그레이션 - 동일 이메일 여러 아이디 허용)
+  try {
+    const [indexes] = await pool.query("SHOW INDEX FROM users WHERE Column_name = 'email' AND Non_unique = 0");
+    if (indexes.length > 0) {
+      await pool.query("ALTER TABLE users DROP INDEX email");
+      console.log('✅ users 테이블에서 email UNIQUE 제약 제거 완료');
+    }
+  } catch (e) {
+    // 인덱스가 없으면 무시
   }
 
   // ============================

@@ -53,16 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 중복 이메일 확인 (이메일이 제공된 경우)
-    if (email) {
-      const existingEmail = await queryOne('SELECT id FROM users WHERE email = ?', [email]);
-      if (existingEmail) {
-        return NextResponse.json(
-          { message: '이미 사용 중인 이메일입니다.' },
-          { status: 409 }
-        );
-      }
-    }
+    // 이메일은 중복 허용 (한 사람이 여러 아이디 사용 가능)
 
     // 비밀번호 해싱
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
