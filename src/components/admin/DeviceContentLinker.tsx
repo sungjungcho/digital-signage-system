@@ -207,6 +207,59 @@ export default function DeviceContentLinker() {
     }
   };
 
+  // 콘텐츠 썸네일 컴포넌트
+  const ContentThumbnail = ({ content }: { content: Content }) => {
+    if (content.type === 'image' && content.url) {
+      return (
+        <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+          <img
+            src={content.url}
+            alt={content.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      );
+    }
+    if (content.type === 'video' && content.url) {
+      // 유튜브인 경우 썸네일
+      if (content.url.startsWith('youtube:')) {
+        const videoUrl = content.url.replace('youtube:', '');
+        let videoId = '';
+        if (videoUrl.includes('youtube.com/watch?v=')) {
+          videoId = new URL(videoUrl).searchParams.get('v') || '';
+        } else if (videoUrl.includes('youtu.be/')) {
+          videoId = videoUrl.split('youtu.be/')[1]?.split('?')[0] || '';
+        }
+        if (videoId) {
+          return (
+            <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 relative">
+              <img
+                src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                alt={content.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <span className="text-white text-lg">▶</span>
+              </div>
+            </div>
+          );
+        }
+      }
+      // 일반 동영상
+      return (
+        <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
+          <span className="text-white text-2xl">🎬</span>
+        </div>
+      );
+    }
+    // 텍스트 또는 기타
+    return (
+      <div className="w-12 h-12 flex-shrink-0 rounded-lg bg-gray-100 flex items-center justify-center">
+        <span className="text-2xl">{getTypeIcon(content.type)}</span>
+      </div>
+    );
+  };
+
   if (loading) {
     return <div className="text-center py-8">로딩 중...</div>;
   }
@@ -283,7 +336,7 @@ export default function DeviceContentLinker() {
                             <span className="text-lg font-bold text-indigo-400 w-6">
                               {index + 1}
                             </span>
-                            <span className="text-2xl">{getTypeIcon(content.type)}</span>
+                            <ContentThumbnail content={content} />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-800 truncate">
                                 {content.name}
@@ -355,7 +408,7 @@ export default function DeviceContentLinker() {
                                   : 'border-gray-200 hover:border-indigo-300'
                               } cursor-grab transition-all`}
                             >
-                              <span className="text-2xl">{getTypeIcon(content.type)}</span>
+                              <ContentThumbnail content={content} />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-gray-800 truncate">
                                   {content.name}

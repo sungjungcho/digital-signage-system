@@ -9,7 +9,7 @@ const BCRYPT_ROUNDS = 12;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, password, email, name } = body;
+    const { username, password, email, phone, name } = body;
 
     // 필수 필드 검증
     if (!username || !password) {
@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
 
     // 사용자 생성 (status: pending)
     await execute(
-      'INSERT INTO users (id, username, email, password_hash, role, status, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [userId, username, email || null, passwordHash, 'user', 'pending', name || null, now, now]
+      'INSERT INTO users (id, username, email, phone, password_hash, role, status, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, username, email || null, phone || null, passwordHash, 'user', 'pending', name || null, now, now]
     );
 
     return NextResponse.json(
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
           id: userId,
           username,
           email: email || null,
+          phone: phone || null,
           name: name || null,
           status: 'pending',
         },

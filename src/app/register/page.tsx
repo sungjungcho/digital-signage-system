@@ -11,6 +11,7 @@ export default function RegisterPage() {
     password: "",
     passwordConfirm: "",
     email: "",
+    phone: "",
     name: "",
   });
   const [error, setError] = useState("");
@@ -93,6 +94,7 @@ export default function RegisterPage() {
           username: formData.username,
           password: formData.password,
           email: formData.email || undefined,
+          phone: formData.phone || undefined,
           name: formData.name || undefined,
         }),
       });
@@ -258,19 +260,40 @@ export default function RegisterPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-blue-200 mb-2">
-              이메일
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-              placeholder="이메일 (선택사항)"
-              autoComplete="email"
-            />
+          <div className="p-4 bg-blue-500/10 border border-blue-400/30 rounded-xl">
+            <p className="text-sm text-blue-200 mb-3">
+              승인 완료 시 통보받을 이메일 또는 연락처를 입력해주세요.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-blue-200 mb-2">
+                  이메일
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                  placeholder="이메일 (선택사항)"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-200 mb-2">
+                  전화번호
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                  placeholder="전화번호 (선택사항)"
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
           </div>
 
           {error && (

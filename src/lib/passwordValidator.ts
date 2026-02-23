@@ -62,6 +62,15 @@ export function validatePassword(password: string): PasswordValidationResult {
     };
   }
 
+  // 5. 특수문자 포함 검사
+  const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/;
+  if (!specialCharPattern.test(password)) {
+    return {
+      isValid: false,
+      message: '비밀번호에 특수문자를 1개 이상 포함해야 합니다.',
+    };
+  }
+
   return {
     isValid: true,
     message: '사용 가능한 비밀번호입니다.',

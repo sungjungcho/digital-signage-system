@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { queryOne, queryAll, execute } from '@/lib/db';
+import { sendApprovalEmail, sendRejectionEmail, sendPendingEmail } from '@/lib/email';
 
 // 슈퍼관리자 권한 확인
 async function checkSuperAdmin(): Promise<boolean> {
@@ -130,6 +131,22 @@ export async function PATCH(
       SELECT id, username, email, role, status, name, max_devices, created_at, updated_at
       FROM users WHERE id = ?
     `, [userId]);
+
+    // 상태가 변경되었고 이메일이 있으면 알림 이메일 발송
+    if (data.status && data.status !== user.status && user.email) {
+      try {
+        if (data.status === 'approved') {
+          await sendApprovalEmail(user.email, user.username);
+        } else if (data.status === 'rejected') {
+          await sendRejectionEmail(user.email, user.username);
+        } else if (data.status === 'pending') {
+          await sendPendingEmail(user.email, user.username);
+        }
+      } catch (emailError) {
+        console.error('이메일 발송 중 오류:', emailError);
+        // 이메일 발송 실패해도 API 응답은 성공으로 처리
+      }
+    }
 
     return NextResponse.json({
       message: '사용자 정보가 업데이트되었습니다.',

@@ -40,6 +40,9 @@ export type devicecontent = {
   endTime?: string;   // "18:00" - 종료 시간
   createdAt: string;
   updatedAt: string;
+  // 라이브러리 콘텐츠 구분
+  isLibraryContent?: boolean; // 콘텐츠 라이브러리에서 연결된 콘텐츠인지
+  linkId?: string; // device_content 테이블의 연결 ID
 }
 
 export type TimeSlot = {

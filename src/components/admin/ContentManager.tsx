@@ -86,6 +86,13 @@ export default function ContentManager({ device }: ContentManagerProps) {
   const [editingMediaFile, setEditingMediaFile] = useState<File | null>(null);
   const [editingMediaDuration, setEditingMediaDuration] = useState(5000);
 
+  // 라이브러리 콘텐츠 스케줄 수정 모달 state
+  const [showScheduleEditModal, setShowScheduleEditModal] = useState(false);
+  const [editingScheduleContent, setEditingScheduleContent] = useState<DeviceContent | null>(null);
+  const [editingScheduleData, setEditingScheduleData] = useState<ScheduleData>({
+    scheduleType: 'always',
+  });
+
   // 시간 변환 헬퍼 함수
   const msToTime = (ms: number): { hours: number; minutes: number; seconds: number } => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -198,6 +205,66 @@ export default function ContentManager({ device }: ContentManagerProps) {
         alert('오류가 발생했습니다.');
       }
     };
+
+  // 라이브러리 콘텐츠 연결 해제 함수
+  const handleUnlinkContent = async (contentId: string) => {
+    try {
+      const response = await fetch(`/api/devices/${device.id}/contents/link/${contentId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        fetchContents();
+        alert('콘텐츠 연결이 해제되었습니다.');
+      } else {
+        const error = await response.json();
+        alert('연결 해제 실패: ' + (error.error || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('연결 해제 중 오류 발생:', error);
+      alert('오류가 발생했습니다.');
+    }
+  };
+
+  // 라이브러리 콘텐츠 스케줄 수정 모달 열기
+  const handleEditSchedule = (content: DeviceContent) => {
+    setEditingScheduleContent(content);
+    setEditingScheduleData({
+      scheduleType: content.scheduleType || 'always',
+      specificDate: content.specificDate,
+      daysOfWeek: content.daysOfWeek,
+      startDate: content.startDate,
+      endDate: content.endDate,
+      startTime: content.startTime,
+      endTime: content.endTime,
+    });
+    setShowScheduleEditModal(true);
+  };
+
+  // 라이브러리 콘텐츠 스케줄 저장
+  const handleSaveSchedule = async () => {
+    if (!editingScheduleContent) return;
+
+    try {
+      const response = await fetch(`/api/devices/${device.id}/contents/link/${editingScheduleContent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingScheduleData),
+      });
+
+      if (response.ok) {
+        setShowScheduleEditModal(false);
+        setEditingScheduleContent(null);
+        fetchContents();
+        alert('스케줄이 저장되었습니다.');
+      } else {
+        const error = await response.json();
+        alert('스케줄 저장 실패: ' + (error.error || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('스케줄 저장 중 오류:', error);
+      alert('오류가 발생했습니다.');
+    }
+  };
 
   const handleFileUpload = async () => {
     if (!selectedFile) return;
@@ -2490,9 +2557,14 @@ export default function ContentManager({ device }: ContentManagerProps) {
                       )}
                     </>
                   )}
-                  <div className="text-base text-black">
-                    <span>재생 시간: {formatDuration(content.duration)}</span>
-                    <span className="ml-3">순서: {content.order + 1}번째</span>
+                  <div className="text-base text-black flex items-center gap-2 flex-wrap">
+                    <span>재생 시간: {content.isLibraryContent ? `${content.duration}초` : formatDuration(content.duration)}</span>
+                    <span>순서: {content.order + 1}번째</span>
+                    {content.isLibraryContent && (
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full border border-green-300">
+                        라이브러리
+                      </span>
+                    )}
                   </div>
                   {/* 스케줄 정보 표시 */}
                   {content.scheduleType && content.scheduleType !== 'always' && (
@@ -2505,23 +2577,47 @@ export default function ContentManager({ device }: ContentManagerProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleEditContent(content)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (window.confirm('정말로 삭제하시겠습니까?')) {
-                        handleDeleteContent(content.id);
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    삭제
-                  </button>
+                  {content.isLibraryContent ? (
+                    <>
+                      <button
+                        onClick={() => handleEditSchedule(content)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        스케줄 설정
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (window.confirm('디바이스에서 이 콘텐츠 연결을 해제하시겠습니까?')) {
+                            handleUnlinkContent(content.id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        연결 해제
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleEditContent(content)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (window.confirm('정말로 삭제하시겠습니까?')) {
+                            handleDeleteContent(content.id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        삭제
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))
@@ -3157,6 +3253,64 @@ export default function ContentManager({ device }: ContentManagerProps) {
             </button>
             <button
               onClick={handleSaveMediaEdit}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 라이브러리 콘텐츠 스케줄 수정 모달 */}
+    {showScheduleEditModal && editingScheduleContent && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-blue-700">스케줄 설정</h3>
+            <button
+              onClick={() => {
+                setShowScheduleEditModal(false);
+                setEditingScheduleContent(null);
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* 콘텐츠 정보 (읽기 전용) */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-500 mb-1">콘텐츠 정보</p>
+              <p className="font-medium text-gray-800">
+                [{editingScheduleContent.type}] {editingScheduleContent.text?.substring(0, 50) || editingScheduleContent.url?.substring(0, 50) || '콘텐츠'}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                재생 시간: {editingScheduleContent.duration}초
+                <span className="ml-2 text-blue-600">(콘텐츠 라이브러리에서 수정 가능)</span>
+              </p>
+            </div>
+
+            {/* 스케줄 설정 */}
+            <ScheduleSettings
+              value={editingScheduleData}
+              onChange={setEditingScheduleData}
+            />
+          </div>
+
+          <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3">
+            <button
+              onClick={() => {
+                setShowScheduleEditModal(false);
+                setEditingScheduleContent(null);
+              }}
+              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSaveSchedule}
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               저장

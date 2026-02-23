@@ -51,6 +51,7 @@ export async function GET(
           c.\`loop\`,
           c.muted,
           c.metadata,
+          dc.id as linkId,
           dc.\`order\`,
           dc.active,
           dc.scheduleType,
@@ -60,7 +61,8 @@ export async function GET(
           dc.endDate,
           dc.startTime,
           dc.endTime,
-          ? as deviceId
+          ? as deviceId,
+          1 as isLibraryContent
         FROM device_content dc
         JOIN content c ON dc.content_id = c.id
         WHERE dc.device_id = ? AND dc.active = 1
@@ -81,8 +83,10 @@ export async function GET(
     // 3. 새 구조 콘텐츠 ID 목록 (중복 방지)
     const newContentIds = new Set(newContents.map(c => c.id));
 
-    // 4. 기존 콘텐츠 중 새 구조에 없는 것만 추가
-    const legacyContents = oldContents.filter(c => !newContentIds.has(c.id));
+    // 4. 기존 콘텐츠 중 새 구조에 없는 것만 추가 (isLibraryContent: false 표시)
+    const legacyContents = oldContents
+      .filter(c => !newContentIds.has(c.id))
+      .map(c => ({ ...c, isLibraryContent: false }));
 
     // 5. 합치기 (새 구조 우선, 그 뒤에 기존 구조)
     const allContents = [...newContents, ...legacyContents];
