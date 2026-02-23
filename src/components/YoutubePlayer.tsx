@@ -39,6 +39,12 @@ export default function YoutubePlayer({
       modestbranding: '1', // YouTube 로고 최소화
       rel: '0', // 관련 동영상 비활성화
       showinfo: '0', // 제목 등 정보 숨김
+      iv_load_policy: '3', // 동영상 주석(카드) 비활성화
+      fs: '0', // 전체화면 버튼 숨김
+      disablekb: '1', // 키보드 컨트롤 비활성화
+      playsinline: '1', // 인라인 재생
+      cc_load_policy: '0', // 자막 비활성화
+      origin: typeof window !== 'undefined' ? window.location.origin : '',
     });
 
     if (type === 'playlist') {
@@ -57,7 +63,7 @@ export default function YoutubePlayer({
   };
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       <iframe
         ref={iframeRef}
         src={getEmbedUrl()}
@@ -72,6 +78,21 @@ export default function YoutubePlayer({
           width: '100%',
           height: '100%',
         }}
+      />
+      {/* 클릭 차단 오버레이 - 유튜브 내부 링크 클릭 방지 */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 10,
+          background: 'transparent',
+          cursor: 'default',
+        }}
+        onClick={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
       />
     </div>
   );
