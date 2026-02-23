@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { queryOne, execute } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 
 // WebSocket 서버에서 broadcastContentUpdateToDevice 가져오기
 let broadcastContentUpdateToDevice: ((deviceId: string) => void) | null = null;
@@ -88,11 +89,17 @@ export async function POST(request: NextRequest) {
 
     // deviceId가 없으면 콘텐츠 라이브러리(content 테이블)에 저장
     if (!deviceId) {
+      // 현재 사용자 가져오기
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
+      }
+
       await execute(`
         INSERT INTO content (
-          id, name, type, url, duration, metadata, createdAt, updatedAt
+          id, name, type, url, duration, metadata, user_id, createdAt, updatedAt
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         contentId,
         name || '유튜브 영상',
@@ -100,6 +107,7 @@ export async function POST(request: NextRequest) {
         `youtube:${youtubeInfo.id}`,
         duration || 0,
         metadata,
+        user.userId,
         now,
         now
       ]);
