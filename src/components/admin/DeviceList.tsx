@@ -38,8 +38,9 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
 
   const handleSavePinCode = async () => {
     if (!selectedDeviceForPin) return;
-    if (!/^\d{4}$/.test(newPinCode)) {
-      alert('PIN 코드는 4자리 숫자여야 합니다.');
+    // 빈 값(PIN 해제) 또는 4자리 숫자만 허용
+    if (newPinCode !== '' && !/^\d{4}$/.test(newPinCode)) {
+      alert('PIN 코드는 4자리 숫자이거나 빈 값(PIN 해제)이어야 합니다.');
       return;
     }
 
@@ -48,11 +49,11 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
       const response = await fetch(`/api/devices/${selectedDeviceForPin.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin_code: newPinCode }),
+        body: JSON.stringify({ pin_code: newPinCode || null }),
       });
 
       if (response.ok) {
-        alert('PIN 코드가 변경되었습니다.');
+        alert(newPinCode ? 'PIN 코드가 변경되었습니다.' : 'PIN 코드가 해제되었습니다.');
         handleClosePinModal();
         onDeviceDeleted(); // 목록 새로고침
       } else {
@@ -247,18 +248,19 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                       {device.status === 'online' ? '온라인' : '오프라인'}
                     </div>
                   )}
+                  {/* PIN 버튼 - 모든 사용자에게 표시 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenPinModal(device);
+                    }}
+                    className="px-2 py-1 text-base text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
+                    title="PIN 코드 변경"
+                  >
+                    PIN
+                  </button>
                   {isSuperAdmin && (
                     <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenPinModal(device);
-                        }}
-                        className="px-2 py-1 text-base text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
-                        title="PIN 코드 변경"
-                      >
-                        PIN
-                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -309,7 +311,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
 
             <div className="mb-4 p-3 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">디바이스: <span className="font-semibold">{selectedDeviceForPin.name}</span></p>
-              <p className="text-sm text-gray-500">현재 PIN: <span className="font-mono font-bold">{selectedDeviceForPin.pin_code || '0000'}</span></p>
+              <p className="text-sm text-gray-500">현재 PIN: <span className="font-mono font-bold">{selectedDeviceForPin.pin_code || '없음 (공개)'}</span></p>
             </div>
 
             <div className="space-y-4">
@@ -325,19 +327,19 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                     setNewPinCode(v);
                   }}
                   className="w-full px-4 py-3 text-center text-2xl font-mono border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 tracking-widest"
-                  placeholder="0000"
+                  placeholder="비워두면 PIN 해제"
                   maxLength={4}
                   autoFocus
                 />
-                <p className="mt-1 text-xs text-gray-500 text-center">4자리 숫자를 입력하세요</p>
+                <p className="mt-1 text-xs text-gray-500 text-center">4자리 숫자 입력 또는 비워두면 PIN 해제</p>
               </div>
 
               <button
                 onClick={handleSavePinCode}
-                disabled={pinSaving || newPinCode.length !== 4}
+                disabled={pinSaving || (newPinCode !== '' && newPinCode.length !== 4)}
                 className="w-full py-3 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
               >
-                {pinSaving ? '저장 중...' : 'PIN 코드 변경'}
+                {pinSaving ? '저장 중...' : (newPinCode === '' ? 'PIN 해제' : 'PIN 코드 변경')}
               </button>
             </div>
           </div>

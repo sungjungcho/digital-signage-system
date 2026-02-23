@@ -96,12 +96,25 @@ export async function PATCH(
       );
     }
 
-    // 슈퍼관리자만 디바이스 속성 수정 가능
-    if (userRole !== 'superadmin') {
-      return NextResponse.json(
-        { error: '슈퍼관리자만 디바이스를 수정할 수 있습니다.' },
-        { status: 403 }
-      );
+    // 권한 확인: 일반 사용자는 자기 디바이스의 PIN만 수정 가능
+    const isOwner = device.user_id === userId;
+    const isSuperAdmin = userRole === 'superadmin';
+    const isPinOnlyUpdate = Object.keys(data).length === 1 && 'pin_code' in data;
+
+    if (!isSuperAdmin) {
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: '이 디바이스를 수정할 권한이 없습니다.' },
+          { status: 403 }
+        );
+      }
+      // 일반 사용자는 PIN만 수정 가능
+      if (!isPinOnlyUpdate) {
+        return NextResponse.json(
+          { error: 'PIN 코드만 수정할 수 있습니다.' },
+          { status: 403 }
+        );
+      }
     }
 
     // alias 중복 체크 (변경하려는 경우)
@@ -115,8 +128,8 @@ export async function PATCH(
       }
     }
 
-    // PIN 코드 변경 시 유효성 검사
-    if (data.pin_code !== undefined && !isValidPinCode(data.pin_code)) {
+    // PIN 코드 변경 시 유효성 검사 (null/빈값은 허용 - PIN 해제)
+    if (data.pin_code !== undefined && data.pin_code !== null && data.pin_code !== '' && !isValidPinCode(data.pin_code)) {
       return NextResponse.json(
         { error: 'PIN 코드는 4자리 숫자여야 합니다.' },
         { status: 400 }
@@ -160,6 +173,13 @@ export async function PATCH(
 
     // 디바이스 업데이트
     const now = new Date().toISOString();
+
+    // PIN 코드 처리: 빈 문자열은 null로 변환 (PIN 해제)
+    let newPinCode = device.pin_code;
+    if (data.pin_code !== undefined) {
+      newPinCode = (data.pin_code === '' || data.pin_code === null) ? null : data.pin_code;
+    }
+
     await execute(`
       UPDATE device
       SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, approval_status = ?, updatedAt = ?
@@ -168,7 +188,7 @@ export async function PATCH(
       data.name || device.name,
       data.location || device.location,
       data.alias || device.alias,
-      data.pin_code !== undefined ? data.pin_code : device.pin_code,
+      newPinCode,
       data.user_id || device.user_id,
       data.approval_status || device.approval_status,
       now,

@@ -51,6 +51,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   const [loading, setLoading] = useState(true);
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [checkingPin, setCheckingPin] = useState(true);
+  const [hasPin, setHasPin] = useState(true); // PIN 설정 여부
   const [notices, setNotices] = useState<DeviceNotice[]>([]);
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>({
     notice_enabled: 1,
@@ -79,11 +80,36 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
 
   // PIN 검증 상태 확인
   useEffect(() => {
-    const verified = sessionStorage.getItem(`device_pin_verified_${deviceId}`);
-    if (verified === 'true') {
-      setIsPinVerified(true);
-    }
-    setCheckingPin(false);
+    const checkPinStatus = async () => {
+      // 먼저 세션 스토리지 확인
+      const verified = sessionStorage.getItem(`device_pin_verified_${deviceId}`);
+      if (verified === 'true') {
+        setIsPinVerified(true);
+        setCheckingPin(false);
+        return;
+      }
+
+      // API로 PIN 설정 여부 확인
+      try {
+        const response = await fetch(`/api/devices/${deviceId}/verify-pin`);
+        if (response.ok) {
+          const data = await response.json();
+          setHasPin(data.hasPin);
+
+          // PIN이 설정되지 않은 디바이스는 바로 검증 완료 처리
+          if (!data.hasPin) {
+            sessionStorage.setItem(`device_pin_verified_${deviceId}`, 'true');
+            setIsPinVerified(true);
+          }
+        }
+      } catch (error) {
+        console.error('PIN 상태 확인 오류:', error);
+      }
+
+      setCheckingPin(false);
+    };
+
+    checkPinStatus();
   }, [deviceId]);
 
   const handlePinSuccess = (deviceName: string) => {

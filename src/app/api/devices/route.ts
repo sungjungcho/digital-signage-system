@@ -92,13 +92,18 @@ export async function POST(req: Request) {
       }
     }
 
-    // PIN 코드: 직접 입력 또는 자동 생성
+    // PIN 코드: 직접 입력, 자동 생성, 또는 없음(null)
     let pinCode = data.pin_code;
-    if (!pinCode || data.auto_pin) {
+    if (data.auto_pin) {
+      // 자동 생성 요청 시에만 자동 생성
       pinCode = String(Math.floor(1000 + Math.random() * 9000));
+    } else if (pinCode === '' || pinCode === null || pinCode === undefined) {
+      // PIN 없이 등록 (공개 디바이스)
+      pinCode = null;
     }
 
-    if (!isValidPinCode(pinCode)) {
+    // PIN이 입력된 경우에만 유효성 검사
+    if (pinCode !== null && !isValidPinCode(pinCode)) {
       return NextResponse.json(
         { error: 'PIN 코드는 4자리 숫자여야 합니다.' },
         { status: 400 }
@@ -142,8 +147,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // 슈퍼관리자: 즉시 승인, 일반 사용자: 대기
-    const approvalStatus = isSuperAdmin ? 'approved' : 'pending';
+    // 승인 상태 결정:
+    // - 슈퍼관리자: 즉시 승인
+    // - 일반 사용자: 한도 이내(기본 3개)면 즉시 승인, 한도 초과 요청 시에만 승인 대기
+    let approvalStatus = 'approved';
+    let needsApproval = false;
+
+    if (!isSuperAdmin && isOverLimitRequest) {
+      // 한도 초과 요청은 승인 필요
+      approvalStatus = 'pending';
+      needsApproval = true;
+    }
 
     await execute(`
       INSERT INTO device (id, name, location, alias, status, approval_status, is_over_limit_request, user_id, pin_code, createdAt, updatedAt)
@@ -154,7 +168,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ...newDevice,
-      message: isSuperAdmin ? '디바이스가 등록되었습니다.' : '디바이스 등록 요청이 완료되었습니다. 관리자 승인 후 사용 가능합니다.'
+      message: needsApproval
+        ? '디바이스 한도 초과 요청이 완료되었습니다. 관리자 승인 후 사용 가능합니다.'
+        : '디바이스가 등록되었습니다.'
     });
   } catch (error) {
     console.error('Error creating device:', error);
