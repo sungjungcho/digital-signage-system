@@ -54,6 +54,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (user.status === 'suspended') {
+      return NextResponse.json(
+        { message: '계정이 일시 중지되었습니다. 관리자에게 문의하세요.' },
+        { status: 403 }
+      );
+    }
+
     // JWT 토큰 생성 (userId, username, role, status, serverStartTime 포함)
     const token = await new SignJWT({
       userId: user.id,

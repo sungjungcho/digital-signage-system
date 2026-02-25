@@ -232,41 +232,7 @@ async function run() {
   });
   created.libraryContents.push(libVideo.data);
 
-  console.log('[7/10] 복합형 콘텐츠 등록');
-  const mixedForm = new FormData();
-  mixedForm.append('deviceId', device.id);
-  mixedForm.append('elements', JSON.stringify([
-    {
-      type: 'text',
-      order: 0,
-      duration: 3000,
-      text: `Mixed Text ${timestamp}`,
-      fontSize: '2rem',
-      fontColor: '#ffffff',
-      backgroundColor: '#000000',
-    },
-    {
-      type: 'image',
-      order: 1,
-      duration: 3000,
-      url: libImage.data?.url,
-    },
-    {
-      type: 'video',
-      order: 2,
-      duration: 3000,
-      url: libVideo.data?.url,
-      autoplay: true,
-      loop: true,
-      muted: true,
-    },
-  ]));
-  await api.request('/api/contents/mixed', {
-    method: 'POST',
-    formData: mixedForm,
-  });
-
-  console.log('[8/10] 분할 레이아웃 콘텐츠 등록');
+  console.log('[7/9] 분할 레이아웃 콘텐츠 등록');
   await api.request('/api/contents/splitlayout', {
     method: 'POST',
     json: {
@@ -294,7 +260,7 @@ async function run() {
     },
   });
 
-  console.log('[9/10] 라이브러리 콘텐츠를 디바이스에 연결');
+  console.log('[8/9] 라이브러리 콘텐츠를 디바이스에 연결');
   await api.request(`/api/devices/${device.id}/contents/link`, {
     method: 'POST',
     json: {
@@ -302,7 +268,7 @@ async function run() {
     },
   });
 
-  console.log('[10/10] 연결 결과 검증');
+  console.log('[9/9] 연결 결과 검증');
   const linked = await api.request(`/api/devices/${device.id}/contents/link`);
   const linkedIds = new Set((linked.data || []).map((item) => item.id));
   if (!linkedIds.has(libImage.data.id) || !linkedIds.has(libVideo.data.id)) {

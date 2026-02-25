@@ -1,7 +1,12 @@
 import mysql from 'mysql2/promise';
-import type { ResultSetHeader } from 'mysql2';
+import type { ResultSetHeader, Pool } from 'mysql2/promise';
 
-const pool = mysql.createPool({
+// Next.js 개발 모드에서 핫 리로드 시 연결 풀이 중복 생성되는 것을 방지
+const globalForDb = globalThis as unknown as {
+  mysqlPool: Pool | undefined;
+};
+
+const pool = globalForDb.mysqlPool ?? mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306'),
   user: process.env.DB_USER || 'signage',
@@ -11,6 +16,10 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForDb.mysqlPool = pool;
+}
 
 // 단일 행 조회 (replaces db.prepare(sql).get(...params))
 export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | undefined> {

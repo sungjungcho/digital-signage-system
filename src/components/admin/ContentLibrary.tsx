@@ -25,6 +25,86 @@ const CONTENT_TYPES = [
   { value: 'text', label: '텍스트' },
 ];
 
+// 시간 변환 유틸리티
+const secondsToHMS = (totalSeconds: number) => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { hours, minutes, seconds };
+};
+
+const hmsToSeconds = (hours: number, minutes: number, seconds: number) => {
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
+// 초를 읽기 좋은 형식으로 변환 (예: 1시간 30분 45초)
+const formatDuration = (totalSeconds: number) => {
+  const { hours, minutes, seconds } = secondsToHMS(totalSeconds);
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}시간`);
+  if (minutes > 0) parts.push(`${minutes}분`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}초`);
+  return parts.join(' ');
+};
+
+// 재생 시간 입력 컴포넌트
+interface DurationInputProps {
+  value: number; // 초 단위
+  onChange: (seconds: number) => void;
+}
+
+function DurationInput({ value, onChange }: DurationInputProps) {
+  const { hours, minutes, seconds } = secondsToHMS(value);
+
+  const handleChange = (field: 'hours' | 'minutes' | 'seconds', val: string) => {
+    const numVal = parseInt(val) || 0;
+    const newHours = field === 'hours' ? Math.max(0, numVal) : hours;
+    const newMinutes = field === 'minutes' ? Math.min(59, Math.max(0, numVal)) : minutes;
+    const newSeconds = field === 'seconds' ? Math.min(59, Math.max(0, numVal)) : seconds;
+    const totalSeconds = hmsToSeconds(newHours, newMinutes, newSeconds);
+    onChange(Math.max(1, totalSeconds)); // 최소 1초
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1">
+        <input
+          type="number"
+          value={hours}
+          onChange={(e) => handleChange('hours', e.target.value)}
+          min="0"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-center"
+        />
+        <span className="block text-xs text-gray-500 text-center mt-1">시</span>
+      </div>
+      <span className="text-gray-400 font-bold">:</span>
+      <div className="flex-1">
+        <input
+          type="number"
+          value={minutes}
+          onChange={(e) => handleChange('minutes', e.target.value)}
+          min="0"
+          max="59"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-center"
+        />
+        <span className="block text-xs text-gray-500 text-center mt-1">분</span>
+      </div>
+      <span className="text-gray-400 font-bold">:</span>
+      <div className="flex-1">
+        <input
+          type="number"
+          value={seconds}
+          onChange={(e) => handleChange('seconds', e.target.value)}
+          min="0"
+          max="59"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-center"
+        />
+        <span className="block text-xs text-gray-500 text-center mt-1">초</span>
+      </div>
+    </div>
+  );
+}
+
 export default function ContentLibrary() {
   const [contents, setContents] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,10 +116,11 @@ export default function ContentLibrary() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 업로드 폼 상태
-  const [uploadMode, setUploadMode] = useState<'file' | 'youtube'>('file');
+  const [uploadMode, setUploadMode] = useState<'file' | 'youtube' | 'text'>('file');
   const [uploadName, setUploadName] = useState('');
   const [uploadDuration, setUploadDuration] = useState(10);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [editingFile, setEditingFile] = useState<File | null>(null);
 
   // 유튜브 관련 상태
@@ -48,6 +129,14 @@ export default function ContentLibrary() {
     autoplay: true,
     loop: false,
     mute: true,
+  });
+
+  // 텍스트 콘텐츠 상태
+  const [textContent, setTextContent] = useState({
+    text: '',
+    fontSize: '36',
+    fontColor: '#ffffff',
+    backgroundColor: '#000000',
   });
 
   // 콘텐츠 목록 조회
@@ -73,51 +162,107 @@ export default function ContentLibrary() {
     fetchContents();
   }, [selectedType, searchQuery]);
 
-  // 파일 업로드
+  // 파일 업로드 (다건 지원)
   const handleUpload = async () => {
-    if (!uploadFile) {
+    if (uploadFiles.length === 0) {
       alert('파일을 선택해주세요.');
       return;
     }
 
     setUploading(true);
+    setUploadProgress({ current: 0, total: uploadFiles.length });
+
+    const failedFiles: string[] = [];
+    let successCount = 0;
+
     try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('name', uploadName || uploadFile.name);
-      formData.append('duration', uploadDuration.toString());
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        setUploadProgress({ current: i + 1, total: uploadFiles.length });
 
-      const response = await fetch('/api/contents/library-upload', {
-        method: 'POST',
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append('file', file);
+        // 단건일 때만 사용자 입력 이름 사용, 다건일 때는 파일명 사용
+        const fileName = uploadFiles.length === 1 && uploadName
+          ? uploadName
+          : file.name.replace(/\.[^/.]+$/, '');
+        formData.append('name', fileName);
+        formData.append('duration', uploadDuration.toString());
 
-      if (response.ok) {
-        alert('업로드 완료!');
-        setShowUploadModal(false);
-        setUploadFile(null);
-        setUploadName('');
-        setUploadDuration(10);
-        fetchContents();
-      } else {
-        let errorMessage = `업로드 실패 (HTTP ${response.status})`;
-        const contentType = response.headers.get('content-type') || '';
+        try {
+          const response = await fetch('/api/contents/library-upload', {
+            method: 'POST',
+            body: formData,
+          });
 
-        if (contentType.includes('application/json')) {
-          const error = await response.json();
-          errorMessage = error?.error || errorMessage;
-        } else {
-          const text = await response.text();
-          if (text) {
-            errorMessage = `${errorMessage}\n${text.slice(0, 200)}`;
+          if (response.ok) {
+            successCount++;
+          } else {
+            failedFiles.push(file.name);
           }
+        } catch {
+          failedFiles.push(file.name);
         }
-
-        alert(errorMessage);
       }
+
+      if (failedFiles.length === 0) {
+        alert(`${successCount}개 파일 업로드 완료!`);
+      } else {
+        alert(`${successCount}개 성공, ${failedFiles.length}개 실패\n실패: ${failedFiles.join(', ')}`);
+      }
+
+      setShowUploadModal(false);
+      setUploadFiles([]);
+      setUploadName('');
+      setUploadDuration(10);
+      fetchContents();
     } catch (error) {
       console.error('업로드 오류:', error);
       alert('업로드 중 오류가 발생했습니다.');
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
+  // 텍스트 콘텐츠 등록
+  const handleTextUpload = async () => {
+    if (!textContent.text.trim()) {
+      alert('텍스트를 입력해주세요.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const response = await fetch('/api/contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: uploadName || '텍스트 콘텐츠',
+          type: 'text',
+          text: textContent.text,
+          duration: uploadDuration,
+          fontSize: textContent.fontSize,
+          fontColor: textContent.fontColor,
+          backgroundColor: textContent.backgroundColor,
+        }),
+      });
+
+      if (response.ok) {
+        alert('텍스트 콘텐츠 등록 완료!');
+        setShowUploadModal(false);
+        setTextContent({ text: '', fontSize: '36', fontColor: '#ffffff', backgroundColor: '#000000' });
+        setUploadName('');
+        setUploadDuration(10);
+        setUploadMode('file');
+        fetchContents();
+      } else {
+        const error = await response.json();
+        alert(error.error || '텍스트 등록에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('텍스트 등록 오류:', error);
+      alert('텍스트 등록 중 오류가 발생했습니다.');
     } finally {
       setUploading(false);
     }
@@ -264,6 +409,8 @@ export default function ContentLibrary() {
       case 'image': return '🖼️';
       case 'video': return '🎬';
       case 'text': return '📝';
+      case 'split_layout': return '📐';
+      case 'advanced_layout': return '🎨';
       default: return '📄';
     }
   };
@@ -274,6 +421,8 @@ export default function ContentLibrary() {
       case 'image': return '이미지';
       case 'video': return '동영상';
       case 'text': return '텍스트';
+      case 'split_layout': return '레이아웃';
+      case 'advanced_layout': return '레이아웃';
       default: return type;
     }
   };
@@ -361,6 +510,31 @@ export default function ContentLibrary() {
                     className="max-h-full max-w-full object-contain"
                     muted
                   />
+                ) : content.type === 'text' && content.text ? (
+                  // 텍스트 콘텐츠 미리보기
+                  <div
+                    className="w-full h-full flex items-center justify-center p-2 text-center"
+                    style={{
+                      backgroundColor: content.backgroundColor || '#000000',
+                      color: content.fontColor || '#ffffff',
+                      fontSize: `${Math.min(parseInt(content.fontSize || '24') / 2, 16)}px`,
+                    }}
+                  >
+                    <span className="line-clamp-4 break-words">
+                      {content.text}
+                    </span>
+                  </div>
+                ) : content.type === 'split_layout' ? (
+                  // 분할 레이아웃 미리보기
+                  <div className="w-full h-full flex">
+                    <div className="w-2/3 bg-gray-200 flex items-center justify-center border-r border-gray-300">
+                      <span className="text-xs text-gray-500">콘텐츠</span>
+                    </div>
+                    <div className="w-1/3 bg-blue-50 flex flex-col items-center justify-center p-1">
+                      <span className="text-[8px] text-gray-500">날짜/시간</span>
+                      <span className="text-[8px] text-gray-500">환자명단</span>
+                    </div>
+                  </div>
                 ) : (
                   <span className="text-4xl">{getTypeIcon(content.type)}</span>
                 )}
@@ -378,7 +552,7 @@ export default function ContentLibrary() {
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>재생시간: {content.duration}초</span>
+                  <span>재생시간: {formatDuration(content.duration)}</span>
                   <span>연결: {content.linkedDeviceCount}개</span>
                 </div>
 
@@ -408,51 +582,62 @@ export default function ContentLibrary() {
 
       {/* 업로드 모달 */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed top-[130px] left-0 right-0 bottom-0 bg-black/50 flex items-start justify-center z-[100] pt-8">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
             <h4 className="text-xl font-bold text-gray-800 mb-4">새 콘텐츠 등록</h4>
 
             {/* 탭 선택 */}
-            <div className="flex mb-4 bg-gray-100 rounded-lg p-1">
+            <div className="grid grid-cols-3 mb-4 bg-gray-100 rounded-lg p-1 gap-1">
               <button
                 onClick={() => setUploadMode('file')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
                   uploadMode === 'file'
                     ? 'bg-white text-purple-700 shadow'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                파일 업로드
+                이미지/동영상
+              </button>
+              <button
+                onClick={() => setUploadMode('text')}
+                className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+                  uploadMode === 'text'
+                    ? 'bg-white text-blue-600 shadow'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                텍스트
               </button>
               <button
                 onClick={() => setUploadMode('youtube')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
                   uploadMode === 'youtube'
                     ? 'bg-white text-red-600 shadow'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                유튜브 URL
+                유튜브
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
               {/* 파일 업로드 모드 */}
               {uploadMode === 'file' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    파일 선택
+                    이미지/동영상 선택 (여러 파일 선택 가능)
                   </label>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*,video/*"
+                    multiple
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setUploadFile(file);
-                        if (!uploadName) {
-                          setUploadName(file.name.replace(/\.[^/.]+$/, ''));
+                      const files = Array.from(e.target.files || []);
+                      if (files.length > 0) {
+                        setUploadFiles(files);
+                        if (files.length === 1 && !uploadName) {
+                          setUploadName(files[0].name.replace(/\.[^/.]+$/, ''));
                         }
                       }
                     }}
@@ -461,10 +646,35 @@ export default function ContentLibrary() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-left text-gray-600 hover:bg-gray-50"
+                    className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-purple-400 transition-colors"
                   >
-                    {uploadFile ? uploadFile.name : '클릭하여 파일 선택'}
+                    {uploadFiles.length === 0
+                      ? '클릭하여 파일 선택 (이미지/동영상)'
+                      : `${uploadFiles.length}개 파일 선택됨`}
                   </button>
+                  {uploadFiles.length > 0 && (
+                    <div className="mt-2 max-h-32 overflow-y-auto">
+                      <div className="space-y-1">
+                        {uploadFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between px-2 py-1 bg-gray-50 rounded text-sm"
+                          >
+                            <span className="truncate flex-1 mr-2">
+                              {file.type.startsWith('image/') ? '🖼️' : '🎬'} {file.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setUploadFiles(uploadFiles.filter((_, i) => i !== index))}
+                              className="text-red-500 hover:text-red-700 flex-shrink-0"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -472,19 +682,15 @@ export default function ContentLibrary() {
               {uploadMode === 'youtube' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      유튜브 URL
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">유튜브 URL</label>
                     <input
                       type="text"
                       value={youtubeUrl}
                       onChange={(e) => setYoutubeUrl(e.target.value)}
-                      placeholder="https://www.youtube.com/watch?v=... 또는 재생목록 URL"
+                      placeholder="https://www.youtube.com/watch?v=..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
                   </div>
-
-                  {/* 유튜브 옵션 */}
                   <div className="flex flex-wrap gap-4 p-3 bg-gray-50 rounded-lg">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -517,56 +723,156 @@ export default function ContentLibrary() {
                 </>
               )}
 
+              {/* 텍스트 모드 */}
+              {uploadMode === 'text' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">텍스트 내용</label>
+                    <textarea
+                      value={textContent.text}
+                      onChange={(e) => setTextContent(prev => ({ ...prev, text: e.target.value }))}
+                      placeholder="표시할 텍스트를 입력하세요"
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">글자 크기</label>
+                      <select
+                        value={textContent.fontSize}
+                        onChange={(e) => setTextContent(prev => ({ ...prev, fontSize: e.target.value }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="18">18pt</option>
+                        <option value="24">24pt</option>
+                        <option value="36">36pt</option>
+                        <option value="48">48pt</option>
+                        <option value="72">72pt</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">글자 색상</label>
+                      <input
+                        type="color"
+                        value={textContent.fontColor}
+                        onChange={(e) => setTextContent(prev => ({ ...prev, fontColor: e.target.value }))}
+                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">배경 색상</label>
+                      <input
+                        type="color"
+                        value={textContent.backgroundColor}
+                        onChange={(e) => setTextContent(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  {/* 미리보기 */}
+                  <div
+                    className="p-4 rounded-lg text-center"
+                    style={{
+                      backgroundColor: textContent.backgroundColor,
+                      color: textContent.fontColor,
+                      fontSize: `${parseInt(textContent.fontSize) / 2}px`,
+                    }}
+                  >
+                    {textContent.text || '미리보기'}
+                  </div>
+                </>
+              )}
+
+              {/* 공통: 콘텐츠 이름 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   콘텐츠 이름
+                  {uploadMode === 'file' && uploadFiles.length > 1 && (
+                    <span className="text-xs text-gray-500 ml-2">(다건 시 파일명 적용)</span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={uploadName}
                   onChange={(e) => setUploadName(e.target.value)}
-                  placeholder={uploadMode === 'youtube' ? '유튜브 영상 이름' : '콘텐츠 이름'}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  placeholder={
+                    uploadMode === 'youtube' ? '유튜브 영상 이름' :
+                    uploadMode === 'text' ? '텍스트 콘텐츠 이름' :
+                    '콘텐츠 이름'
+                  }
+                  disabled={uploadMode === 'file' && uploadFiles.length > 1}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
                 />
               </div>
 
+              {/* 공통: 재생 시간 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  재생 시간 (초)
-                </label>
-                <input
-                  type="number"
+                <label className="block text-sm font-medium text-gray-700 mb-1">재생 시간</label>
+                <DurationInput
                   value={uploadDuration}
-                  onChange={(e) => setUploadDuration(parseInt(e.target.value) || 10)}
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  onChange={setUploadDuration}
                 />
               </div>
             </div>
+
+            {/* 업로드 진행 상태 */}
+            {uploadProgress && (
+              <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-purple-700 font-medium">
+                    업로드 중... ({uploadProgress.current}/{uploadProgress.total})
+                  </span>
+                  <span className="text-sm text-purple-600">
+                    {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full bg-purple-200 rounded-full h-2">
+                  <div
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => {
                   setShowUploadModal(false);
-                  setUploadFile(null);
+                  setUploadFiles([]);
                   setUploadName('');
                   setYoutubeUrl('');
                   setUploadMode('file');
+                  setTextContent({ text: '', fontSize: '36', fontColor: '#ffffff', backgroundColor: '#000000' });
                 }}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                disabled={uploading}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
               >
                 취소
               </button>
               <button
-                onClick={uploadMode === 'file' ? handleUpload : handleYoutubeUpload}
-                disabled={uploading || (uploadMode === 'file' ? !uploadFile : !youtubeUrl.trim())}
+                onClick={
+                  uploadMode === 'file' ? handleUpload :
+                  uploadMode === 'youtube' ? handleYoutubeUpload :
+                  handleTextUpload
+                }
+                disabled={
+                  uploading ||
+                  (uploadMode === 'file' && uploadFiles.length === 0) ||
+                  (uploadMode === 'youtube' && !youtubeUrl.trim()) ||
+                  (uploadMode === 'text' && !textContent.text.trim())
+                }
                 className={`flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 ${
-                  uploadMode === 'youtube'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-purple-600 hover:bg-purple-700'
+                  uploadMode === 'youtube' ? 'bg-red-600 hover:bg-red-700' :
+                  uploadMode === 'text' ? 'bg-blue-600 hover:bg-blue-700' :
+                  'bg-purple-600 hover:bg-purple-700'
                 }`}
               >
-                {uploading ? '등록 중...' : uploadMode === 'youtube' ? '유튜브 추가' : '업로드'}
+                {uploading ? '등록 중...' :
+                  uploadMode === 'youtube' ? '유튜브 추가' :
+                  uploadMode === 'text' ? '텍스트 등록' :
+                  uploadFiles.length > 1 ? `${uploadFiles.length}개 업로드` : '업로드'}
               </button>
             </div>
           </div>
@@ -575,7 +881,7 @@ export default function ContentLibrary() {
 
       {/* 수정 모달 */}
       {editingContent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed top-[130px] left-0 right-0 bottom-0 bg-black/50 flex items-start justify-center z-[100] pt-8">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
             <h4 className="text-xl font-bold text-gray-800 mb-4">콘텐츠 수정</h4>
 
@@ -596,19 +902,16 @@ export default function ContentLibrary() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  재생 시간 (초)
+                  재생 시간
                 </label>
-                <input
-                  type="number"
+                <DurationInput
                   value={editingContent.duration}
-                  onChange={(e) =>
+                  onChange={(seconds) =>
                     setEditingContent({
                       ...editingContent,
-                      duration: parseInt(e.target.value) || 10,
+                      duration: seconds,
                     })
                   }
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
 
@@ -658,6 +961,7 @@ export default function ContentLibrary() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

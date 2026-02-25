@@ -7,6 +7,7 @@ import {
   Draggable,
   DropResult,
 } from '@hello-pangea/dnd';
+import { LayoutTemplateId, LAYOUT_TEMPLATES } from '@/types/layout';
 
 type Content = {
   id: string;
@@ -21,6 +22,7 @@ type LinkedContent = Content & {
   link_id: string;
   order: number;
   active: number;
+  zone_id: string;
 };
 
 type Device = {
@@ -28,6 +30,7 @@ type Device = {
   name: string;
   location: string;
   alias: string;
+  layout_template: LayoutTemplateId;
 };
 
 export default function DeviceContentLinker() {
@@ -36,6 +39,38 @@ export default function DeviceContentLinker() {
   const [libraryContents, setLibraryContents] = useState<Content[]>([]);
   const [linkedContents, setLinkedContents] = useState<LinkedContent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<string>('all'); // 콘텐츠 타입 필터
+  const [applyingToDevice, setApplyingToDevice] = useState(false);
+
+  // 디바이스에 콘텐츠 변경사항 적용 (새로고침 트리거)
+  const handleApplyToDevice = async () => {
+    if (!selectedDevice) {
+      alert('디바이스를 선택하세요.');
+      return;
+    }
+    setApplyingToDevice(true);
+    try {
+      const response = await fetch('http://localhost:3032/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'contentUpdate',
+          data: { deviceId: selectedDevice.id }
+        }),
+      });
+
+      if (response.ok) {
+        alert('디바이스에 적용되었습니다.');
+      } else {
+        alert('디바이스 적용에 실패했습니다. WebSocket 서버를 확인해주세요.');
+      }
+    } catch (error) {
+      console.error('디바이스 적용 오류:', error);
+      alert('디바이스 적용 중 오류가 발생했습니다. WebSocket 서버가 실행 중인지 확인해주세요.');
+    } finally {
+      setApplyingToDevice(false);
+    }
+  };
 
   // 디바이스 목록 조회
   useEffect(() => {
@@ -92,27 +127,39 @@ export default function DeviceContentLinker() {
     fetchLinked();
   }, [selectedDevice]);
 
+  // 현재 디바이스의 레이아웃 템플릿
+  const layoutTemplate = selectedDevice
+    ? LAYOUT_TEMPLATES[selectedDevice.layout_template || 'fullscreen']
+    : null;
+
+  // 영역별 콘텐츠 그룹화
+  const getContentsByZone = (zoneId: string) => {
+    return linkedContents
+      .filter(c => (c.zone_id || 'area-0') === zoneId)
+      .sort((a, b) => a.order - b.order);
+  };
+
   // 드래그 종료 핸들러
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
 
     if (!destination || !selectedDevice) return;
 
-    // 라이브러리에서 디바이스로 드래그 (연결)
-    if (source.droppableId === 'library' && destination.droppableId === 'device') {
-      const contentId = draggableId.replace('library-', '');
+    // 같은 위치로 드래그한 경우 무시
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
 
-      // 이미 연결되어 있는지 확인
-      if (linkedContents.some(c => c.id === contentId)) {
-        alert('이미 연결된 콘텐츠입니다.');
-        return;
-      }
+    // 라이브러리에서 영역으로 드래그 (연결)
+    if (source.droppableId === 'library' && destination.droppableId.startsWith('zone-')) {
+      const contentId = draggableId.replace('library-', '');
+      const zoneId = destination.droppableId.replace('zone-', '');
 
       try {
         const response = await fetch(`/api/devices/${selectedDevice.id}/contents/link`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contentId }),
+          body: JSON.stringify({ contentId, zoneId }),
         });
 
         if (response.ok) {
@@ -125,15 +172,68 @@ export default function DeviceContentLinker() {
       } catch (error) {
         console.error('콘텐츠 연결 오류:', error);
       }
+      return;
     }
 
-    // 디바이스에서 라이브러리로 드래그 (연결 해제)
-    if (source.droppableId === 'device' && destination.droppableId === 'library') {
-      const contentId = draggableId.replace('device-', '');
-      const previousLinkedContents = [...linkedContents];
+    // 영역 내에서 순서 변경 또는 영역 간 이동
+    if (source.droppableId.startsWith('zone-') && destination.droppableId.startsWith('zone-')) {
+      const sourceZoneId = source.droppableId.replace('zone-', '');
+      const destZoneId = destination.droppableId.replace('zone-', '');
+      const contentId = draggableId.replace('zone-content-', '');
 
-      // 즉시 UI 반영
-      setLinkedContents(prev => prev.filter(c => c.id !== contentId));
+      // 같은 영역 내 순서 변경
+      if (sourceZoneId === destZoneId) {
+        const zoneContents = getContentsByZone(sourceZoneId);
+        const items = Array.from(zoneContents);
+        const [reorderedItem] = items.splice(source.index, 1);
+        items.splice(destination.index, 0, reorderedItem);
+
+        // UI 즉시 업데이트
+        const newLinkedContents = linkedContents.map(c => {
+          if ((c.zone_id || 'area-0') !== sourceZoneId) return c;
+          const newIndex = items.findIndex(item => item.id === c.id);
+          if (newIndex === -1) return c;
+          return { ...c, order: newIndex };
+        });
+        setLinkedContents(newLinkedContents);
+
+        // API 호출
+        try {
+          await fetch(`/api/devices/${selectedDevice.id}/contents/link`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              zoneId: sourceZoneId,
+              orderedContentIds: items.map(item => item.id),
+            }),
+          });
+        } catch (error) {
+          console.error('순서 변경 오류:', error);
+        }
+      } else {
+        // 영역 간 이동
+        try {
+          await fetch(`/api/devices/${selectedDevice.id}/contents/link/${contentId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zoneId: destZoneId }),
+          });
+
+          // 새로고침
+          const linkedResponse = await fetch(`/api/devices/${selectedDevice.id}/contents/link`);
+          if (linkedResponse.ok) {
+            setLinkedContents(await linkedResponse.json());
+          }
+        } catch (error) {
+          console.error('영역 이동 오류:', error);
+        }
+      }
+      return;
+    }
+
+    // 영역에서 라이브러리로 드래그 (연결 해제)
+    if (source.droppableId.startsWith('zone-') && destination.droppableId === 'library') {
+      const contentId = draggableId.replace('zone-content-', '');
 
       try {
         const response = await fetch(
@@ -141,40 +241,13 @@ export default function DeviceContentLinker() {
           { method: 'DELETE' }
         );
 
-        if (!response.ok) {
-          // 실패 시 롤백
-          setLinkedContents(previousLinkedContents);
-          const error = await response.json();
-          alert(error.error || '콘텐츠 연결 해제에 실패했습니다.');
+        if (response.ok) {
+          setLinkedContents(prev => prev.filter(c => c.id !== contentId));
         }
       } catch (error) {
-        console.error('콘텐츠 연결 해제 오류:', error);
-        setLinkedContents(previousLinkedContents);
-        alert('콘텐츠 연결 해제 중 오류가 발생했습니다.');
+        console.error('연결 해제 오류:', error);
       }
       return;
-    }
-
-    // 디바이스 내에서 순서 변경
-    if (source.droppableId === 'device' && destination.droppableId === 'device') {
-      const items = Array.from(linkedContents);
-      const [reorderedItem] = items.splice(source.index, 1);
-      items.splice(destination.index, 0, reorderedItem);
-
-      setLinkedContents(items);
-
-      // API 호출로 순서 저장
-      try {
-        await fetch(`/api/devices/${selectedDevice.id}/contents/link`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderedContentIds: items.map(item => item.id),
-          }),
-        });
-      } catch (error) {
-        console.error('순서 변경 오류:', error);
-      }
     }
   };
 
@@ -197,31 +270,18 @@ export default function DeviceContentLinker() {
     }
   };
 
-  // 타입별 아이콘
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'image': return '🖼️';
-      case 'video': return '🎬';
-      case 'text': return '📝';
-      default: return '📄';
-    }
-  };
-
   // 콘텐츠 썸네일 컴포넌트
-  const ContentThumbnail = ({ content }: { content: Content }) => {
+  const ContentThumbnail = ({ content, size = 'md' }: { content: Content; size?: 'sm' | 'md' }) => {
+    const sizeClass = size === 'sm' ? 'w-10 h-10' : 'w-12 h-12';
+
     if (content.type === 'image' && content.url) {
       return (
-        <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-          <img
-            src={content.url}
-            alt={content.name}
-            className="w-full h-full object-cover"
-          />
+        <div className={`${sizeClass} flex-shrink-0 rounded-lg overflow-hidden bg-gray-100`}>
+          <img src={content.url} alt={content.name} className="w-full h-full object-cover" />
         </div>
       );
     }
     if (content.type === 'video' && content.url) {
-      // 유튜브인 경우 썸네일
       if (content.url.startsWith('youtube:')) {
         const videoUrl = content.url.replace('youtube:', '');
         let videoId = '';
@@ -232,32 +292,41 @@ export default function DeviceContentLinker() {
         }
         if (videoId) {
           return (
-            <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 relative">
+            <div className={`${sizeClass} flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 relative`}>
               <img
                 src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
                 alt={content.name}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <span className="text-white text-lg">▶</span>
+                <span className="text-white text-xs">▶</span>
               </div>
             </div>
           );
         }
       }
-      // 일반 동영상
       return (
-        <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
-          <span className="text-white text-2xl">🎬</span>
+        <div className={`${sizeClass} flex-shrink-0 rounded-lg bg-gray-800 flex items-center justify-center`}>
+          <span className="text-white">🎬</span>
         </div>
       );
     }
-    // 텍스트 또는 기타
     return (
-      <div className="w-12 h-12 flex-shrink-0 rounded-lg bg-gray-100 flex items-center justify-center">
-        <span className="text-2xl">{getTypeIcon(content.type)}</span>
+      <div className={`${sizeClass} flex-shrink-0 rounded-lg bg-gray-100 flex items-center justify-center`}>
+        <span>{content.type === 'text' ? '📝' : '📄'}</span>
       </div>
     );
+  };
+
+  // 영역 색상
+  const getZoneColor = (index: number) => {
+    const colors = [
+      { bg: 'bg-blue-50', border: 'border-blue-300', hover: 'border-blue-500', text: 'text-blue-700' },
+      { bg: 'bg-green-50', border: 'border-green-300', hover: 'border-green-500', text: 'text-green-700' },
+      { bg: 'bg-amber-50', border: 'border-amber-300', hover: 'border-amber-500', text: 'text-amber-700' },
+      { bg: 'bg-red-50', border: 'border-red-300', hover: 'border-red-500', text: 'text-red-700' },
+    ];
+    return colors[index % colors.length];
   };
 
   if (loading) {
@@ -273,124 +342,161 @@ export default function DeviceContentLinker() {
 
       {/* 디바이스 선택 */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          디바이스 선택
-        </label>
-        <select
-          value={selectedDevice?.id || ''}
-          onChange={(e) => {
-            const device = devices.find(d => d.id === e.target.value);
-            setSelectedDevice(device || null);
-          }}
-          className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">디바이스를 선택하세요</option>
-          {devices.map(device => (
-            <option key={device.id} value={device.id}>
-              {device.name} ({device.location})
-            </option>
-          ))}
-        </select>
+        <label className="block text-sm font-medium text-gray-700 mb-2">디바이스 선택</label>
+        <div className="flex items-center gap-4">
+          <select
+            value={selectedDevice?.id || ''}
+            onChange={(e) => {
+              const device = devices.find(d => d.id === e.target.value);
+              setSelectedDevice(device || null);
+            }}
+            className="flex-1 md:flex-none md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">디바이스를 선택하세요</option>
+            {devices.map(device => (
+              <option key={device.id} value={device.id}>
+                {device.name} ({device.location})
+              </option>
+            ))}
+          </select>
+          {selectedDevice && (
+            <button
+              onClick={handleApplyToDevice}
+              disabled={applyingToDevice}
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 font-medium shadow-sm transition"
+              title="변경사항을 디바이스에 적용"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {applyingToDevice ? '적용 중...' : '디바이스에 적용'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {selectedDevice ? (
+      {selectedDevice && layoutTemplate ? (
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 디바이스에 연결된 콘텐츠 (드롭 영역) */}
-            <div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* 레이아웃 영역들 */}
+            <div className="lg:col-span-2">
               <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">📺</span>
-                {selectedDevice.name}
-                <span className="ml-2 text-sm text-gray-500">
-                  ({linkedContents.length}개 연결됨)
-                </span>
+                {selectedDevice.name} - {layoutTemplate.name}
               </h4>
-              <Droppable droppableId="device">
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`rounded-xl p-3 min-h-[300px] max-h-[500px] overflow-y-auto space-y-2 transition-colors ${
-                      snapshot.isDraggingOver
-                        ? 'bg-indigo-50 border-2 border-dashed border-indigo-400'
-                        : 'bg-indigo-50/50 border-2 border-dashed border-indigo-200'
-                    }`}
-                  >
-                    {linkedContents.map((content, index) => (
-                      <Draggable
-                        key={content.id}
-                        draggableId={`device-${content.id}`}
-                        index={index}
-                      >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`flex items-center gap-3 p-3 bg-white rounded-lg border ${
-                              snapshot.isDragging
-                                ? 'border-indigo-500 shadow-lg'
-                                : 'border-indigo-200'
-                            } transition-all`}
-                          >
-                            <span className="text-lg font-bold text-indigo-400 w-6">
-                              {index + 1}
-                            </span>
-                            <ContentThumbnail content={content} />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-800 truncate">
-                                {content.name}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {content.duration}초
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleUnlink(content.id)}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="연결 해제"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+
+              {/* 레이아웃 그리드 */}
+              <div
+                className="rounded-xl border-2 border-gray-300 bg-gray-100 p-2 aspect-video"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: layoutTemplate.gridTemplate.columns,
+                  gridTemplateRows: layoutTemplate.gridTemplate.rows,
+                  gap: '8px',
+                }}
+              >
+                {layoutTemplate.areas.map((area, index) => {
+                  const zoneContents = getContentsByZone(area.id);
+                  const colors = getZoneColor(index);
+
+                  return (
+                    <Droppable key={area.id} droppableId={`zone-${area.id}`}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`rounded-lg p-2 ${colors.bg} border-2 ${
+                            snapshot.isDraggingOver ? colors.hover : colors.border
+                          } transition-colors overflow-y-auto`}
+                          style={{
+                            gridRow: area.style.gridRow,
+                            gridColumn: area.style.gridColumn,
+                          }}
+                        >
+                          <div className={`text-xs font-medium ${colors.text} mb-2`}>
+                            {area.name} ({zoneContents.length})
                           </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                    {linkedContents.length === 0 && (
-                      <div className="text-center text-indigo-400 py-8">
-                        <p>콘텐츠를 여기로 드래그하세요</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Droppable>
+
+                          <div className="space-y-1">
+                            {zoneContents.map((content, idx) => (
+                              <Draggable
+                                key={content.id}
+                                draggableId={`zone-content-${content.id}`}
+                                index={idx}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`flex items-center gap-2 p-1.5 bg-white rounded border ${
+                                      snapshot.isDragging ? 'border-indigo-500 shadow-lg' : 'border-gray-200'
+                                    } cursor-grab`}
+                                  >
+                                    <ContentThumbnail content={content} size="sm" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium truncate">{content.name}</p>
+                                      <p className="text-[10px] text-gray-500">{content.duration}초</p>
+                                    </div>
+                                    <button
+                                      onClick={() => handleUnlink(content.id)}
+                                      className="p-1 text-red-400 hover:text-red-600"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                            {zoneContents.length === 0 && (
+                              <div className={`text-center py-4 text-xs ${colors.text} opacity-60`}>
+                                콘텐츠를 여기로 드래그
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </Droppable>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* 콘텐츠 라이브러리 (드래그 가능) */}
+            {/* 콘텐츠 라이브러리 */}
             <div>
-              <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
-                <span className="mr-2">📚</span>
-                콘텐츠 라이브러리
-                <span className="ml-2 text-sm text-gray-500">
-                  (드래그하여 연결)
-                </span>
-              </h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-gray-700 flex items-center">
+                  <span className="mr-2">📚</span>
+                  콘텐츠 라이브러리
+                </h4>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="all">전체</option>
+                  <option value="image">이미지</option>
+                  <option value="video">동영상</option>
+                  <option value="text">텍스트</option>
+                </select>
+              </div>
               <Droppable droppableId="library">
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`rounded-xl p-3 min-h-[300px] max-h-[500px] overflow-y-auto space-y-2 transition-colors ${
+                    className={`rounded-xl p-3 min-h-[400px] max-h-[500px] overflow-y-auto space-y-2 transition-colors ${
                       snapshot.isDraggingOver
                         ? 'bg-emerald-50 border-2 border-dashed border-emerald-400'
-                        : 'bg-gray-50 border-2 border-transparent'
+                        : 'bg-gray-50 border-2 border-dashed border-gray-200'
                     }`}
                   >
                     {libraryContents
                       .filter(c => !linkedContents.some(lc => lc.id === c.id))
+                      .filter(c => filterType === 'all' || c.type === filterType)
                       .map((content, index) => (
                         <Draggable
                           key={content.id}
@@ -402,29 +508,26 @@ export default function DeviceContentLinker() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              className={`flex items-center gap-3 p-3 bg-white rounded-lg border ${
-                                snapshot.isDragging
-                                  ? 'border-indigo-500 shadow-lg'
-                                  : 'border-gray-200 hover:border-indigo-300'
-                              } cursor-grab transition-all`}
+                              className={`flex items-center gap-3 p-2 bg-white rounded-lg border ${
+                                snapshot.isDragging ? 'border-indigo-500 shadow-lg' : 'border-gray-200'
+                              } cursor-grab`}
                             >
-                              <ContentThumbnail content={content} />
+                              <ContentThumbnail content={content} size="sm" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-800 truncate">
-                                  {content.name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {content.duration}초
-                                </p>
+                                <p className="text-sm font-medium truncate">{content.name}</p>
+                                <p className="text-xs text-gray-500">{content.duration}초</p>
                               </div>
                             </div>
                           )}
                         </Draggable>
                       ))}
                     {provided.placeholder}
-                    {libraryContents.filter(c => !linkedContents.some(lc => lc.id === c.id)).length === 0 && (
-                      <div className="text-center text-gray-400 py-8">
-                        연결 가능한 콘텐츠가 없습니다
+                    {libraryContents
+                      .filter(c => !linkedContents.some(lc => lc.id === c.id))
+                      .filter(c => filterType === 'all' || c.type === filterType)
+                      .length === 0 && (
+                      <div className="text-center text-gray-400 py-8 text-sm">
+                        {filterType === 'all' ? '연결 가능한 콘텐츠가 없습니다' : `연결 가능한 ${filterType === 'image' ? '이미지' : filterType === 'video' ? '동영상' : '텍스트'} 콘텐츠가 없습니다`}
                       </div>
                     )}
                   </div>
@@ -435,7 +538,7 @@ export default function DeviceContentLinker() {
         </DragDropContext>
       ) : (
         <div className="text-center text-gray-500 py-12 bg-gray-50 rounded-xl">
-          <p>디바이스를 선택하면 콘텐츠를 연결할 수 있습니다.</p>
+          <p>디바이스를 선택하면 레이아웃에 콘텐츠를 배치할 수 있습니다.</p>
         </div>
       )}
     </div>

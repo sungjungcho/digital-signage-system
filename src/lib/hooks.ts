@@ -55,21 +55,9 @@ export function useDeviceContent(deviceId: string) {
             if (isMounted) {
               // 스케줄 콘텐츠를 Content 타입으로 변환
               const formattedContents: Content[] = scheduleData.contents.map((item: any) => {
-                if (item.type === 'mixed') {
-                  return {
-                    id: item.id,
-                    type: 'mixed' as const,
-                    duration: item.duration,
-                    elements: item.elements || [],
-                    ...(item.metadata && { metadata: item.metadata }),
-                    createdAt: item.createdAt,
-                    updatedAt: item.updatedAt,
-                  };
-                }
-
                 return {
                   id: item.id,
-                  type: item.type as 'text' | 'image' | 'video',
+                  type: item.type as 'text' | 'image' | 'video' | 'split_layout',
                   duration: item.duration,
                   ...(item.text && { text: item.text }),
                   ...(item.fontSize && { fontSize: item.fontSize }),
@@ -122,19 +110,6 @@ export function useDeviceContent(deviceId: string) {
                 type: 'split_layout' as const,
                 duration: item.duration,
                 leftContents: leftContents,
-                createdAt: item.createdAt,
-                updatedAt: item.updatedAt,
-              };
-            }
-
-            if (item.type === 'mixed') {
-              // mixed 타입의 경우 elements 포함
-              return {
-                id: item.id,
-                type: 'mixed' as const,
-                duration: item.duration,
-                elements: item.elements || [],
-                ...(item.metadata && { metadata: item.metadata }),
                 createdAt: item.createdAt,
                 updatedAt: item.updatedAt,
               };

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { device } from '@/types/device';
+import { LayoutTemplateId } from '@/types/layout';
 
 import DeviceList from '@/components/admin/DeviceList';
 import ContentManager from '@/components/admin/ContentManager';
@@ -11,6 +12,7 @@ import NoticeManager from '@/components/admin/NoticeManager';
 import ContentLibrary from '@/components/admin/ContentLibrary';
 import DeviceContentLinker from '@/components/admin/DeviceContentLinker';
 import ScheduleViewer from '@/components/admin/ScheduleViewer';
+import TemplateSelector from '@/components/admin/layout-editor/TemplateSelector';
 
 type AlertForm = {
   message: string;
@@ -43,7 +45,13 @@ export default function AdminDashboard() {
 
   // 디바이스 등록 폼
   const [showDeviceForm, setShowDeviceForm] = useState(false);
-  const [deviceForm, setDeviceForm] = useState({ name: '', location: '', alias: '', pin_code: '' });
+  const [deviceForm, setDeviceForm] = useState<{
+    name: string;
+    location: string;
+    alias: string;
+    pin_code: string;
+    layout_template: LayoutTemplateId;
+  }>({ name: '', location: '', alias: '', pin_code: '', layout_template: 'fullscreen' });
   const [deviceFormLoading, setDeviceFormLoading] = useState(false);
   const [deviceFormError, setDeviceFormError] = useState('');
   const [deviceFormSuccess, setDeviceFormSuccess] = useState('');
@@ -133,8 +141,8 @@ export default function AdminDashboard() {
           name: deviceForm.name,
           location: deviceForm.location,
           alias: deviceForm.alias || undefined,
-          pin_code: deviceForm.pin_code || undefined,
-          auto_pin: !deviceForm.pin_code,
+          pin_code: deviceForm.pin_code || null,
+          layout_template: deviceForm.layout_template,
           is_over_limit_request: isOverLimitRequest,
         }),
       });
@@ -143,7 +151,7 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         setDeviceFormSuccess(data.message || '디바이스 등록 요청이 완료되었습니다.');
-        setDeviceForm({ name: '', location: '', alias: '', pin_code: '' });
+        setDeviceForm({ name: '', location: '', alias: '', pin_code: '', layout_template: 'fullscreen' });
         setIsOverLimitRequest(false);
         setShowDeviceForm(false);
         fetchDevices();
@@ -247,8 +255,15 @@ export default function AdminDashboard() {
                         setDeviceForm(prev => ({ ...prev, pin_code: v }));
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono text-center tracking-widest"
-                      placeholder="4자리 숫자 (미입력 시 자동생성)"
+                      placeholder="4자리 숫자 (미입력 시 PIN 없음)"
                       maxLength={4}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">화면 레이아웃 *</label>
+                    <TemplateSelector
+                      selected={deviceForm.layout_template}
+                      onChange={(templateId) => setDeviceForm(prev => ({ ...prev, layout_template: templateId }))}
                     />
                   </div>
                   {deviceFormError && (

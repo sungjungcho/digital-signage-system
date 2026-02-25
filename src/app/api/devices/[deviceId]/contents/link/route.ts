@@ -38,6 +38,7 @@ export async function GET(
         dc.id as link_id,
         dc.\`order\`,
         dc.active,
+        dc.zone_id,
         dc.scheduleType,
         dc.specificDate,
         dc.daysOfWeek,
@@ -48,7 +49,7 @@ export async function GET(
       FROM device_content dc
       JOIN content c ON dc.content_id = c.id
       WHERE dc.device_id = ?
-      ORDER BY dc.\`order\` ASC
+      ORDER BY dc.zone_id ASC, dc.\`order\` ASC
     `, [device.id]);
 
     return NextResponse.json(linkedContents);
@@ -74,7 +75,7 @@ export async function POST(
 
     const { deviceId } = await params;
     const data = await request.json();
-    const { contentId, contentIds } = data;
+    const { contentId, contentIds, zoneId = 'area-0' } = data;
 
     // 디바이스 존재 확인
     const device = await queryOne(
@@ -91,10 +92,10 @@ export async function POST(
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    // 현재 최대 order 값 조회
+    // 현재 최대 order 값 조회 (zone별로)
     const maxOrder = await queryOne(
-      'SELECT MAX(`order`) as maxOrder FROM device_content WHERE device_id = ?',
-      [device.id]
+      'SELECT MAX(`order`) as maxOrder FROM device_content WHERE device_id = ? AND zone_id = ?',
+      [device.id, zoneId]
     ) as any;
     let nextOrder = (maxOrder?.maxOrder ?? -1) + 1;
 
@@ -133,15 +134,16 @@ export async function POST(
       const linkId = randomUUID();
       await execute(`
         INSERT INTO device_content (
-          id, device_id, content_id, \`order\`, active,
+          id, device_id, content_id, \`order\`, active, zone_id,
           scheduleType, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         linkId,
         device.id,
         cId,
         nextOrder++,
         1,
+        zoneId,
         'always',
         now,
         now
@@ -177,7 +179,7 @@ export async function PUT(
 
     const { deviceId } = await params;
     const data = await request.json();
-    const { orderedContentIds } = data;
+    const { orderedContentIds, zoneId } = data;
 
     if (!Array.isArray(orderedContentIds)) {
       return NextResponse.json({ error: 'orderedContentIds 배열이 필요합니다.' }, { status: 400 });
@@ -200,12 +202,19 @@ export async function PUT(
 
     const now = new Date().toISOString();
 
-    // 순서 업데이트
+    // 순서 업데이트 (zoneId가 있으면 해당 zone만, 없으면 전체)
     for (let i = 0; i < orderedContentIds.length; i++) {
-      await execute(
-        'UPDATE device_content SET `order` = ?, updatedAt = ? WHERE device_id = ? AND content_id = ?',
-        [i, now, device.id, orderedContentIds[i]]
-      );
+      if (zoneId) {
+        await execute(
+          'UPDATE device_content SET `order` = ?, updatedAt = ? WHERE device_id = ? AND content_id = ? AND zone_id = ?',
+          [i, now, device.id, orderedContentIds[i], zoneId]
+        );
+      } else {
+        await execute(
+          'UPDATE device_content SET `order` = ?, updatedAt = ? WHERE device_id = ? AND content_id = ?',
+          [i, now, device.id, orderedContentIds[i]]
+        );
+      }
     }
 
     return NextResponse.json({

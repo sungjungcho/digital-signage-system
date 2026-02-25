@@ -1,5 +1,5 @@
 export type UserRole = 'user' | 'superadmin';
-export type UserStatus = 'pending' | 'approved' | 'rejected';
+export type UserStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
 export interface User {
   id: string;

@@ -79,7 +79,7 @@ export async function PATCH(
     }
 
     // 유효한 상태 값 확인
-    if (data.status && !['pending', 'approved', 'rejected'].includes(data.status)) {
+    if (data.status && !['pending', 'approved', 'rejected', 'suspended'].includes(data.status)) {
       return NextResponse.json(
         { error: '유효하지 않은 상태 값입니다.' },
         { status: 400 }

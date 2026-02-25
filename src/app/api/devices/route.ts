@@ -159,10 +159,13 @@ export async function POST(req: Request) {
       needsApproval = true;
     }
 
+    // 레이아웃 템플릿 (기본값: fullscreen)
+    const layoutTemplate = data.layout_template || 'fullscreen';
+
     await execute(`
-      INSERT INTO device (id, name, location, alias, status, approval_status, is_over_limit_request, user_id, pin_code, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [deviceId, data.name, data.location, alias, 'offline', approvalStatus, isOverLimitRequest ? 1 : 0, assignUserId, pinCode, now, now]);
+      INSERT INTO device (id, name, location, alias, status, approval_status, is_over_limit_request, user_id, pin_code, layout_template, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [deviceId, data.name, data.location, alias, 'offline', approvalStatus, isOverLimitRequest ? 1 : 0, assignUserId, pinCode, layoutTemplate, now, now]);
 
     const newDevice = await queryOne('SELECT * FROM device WHERE id = ?', [deviceId]);
 

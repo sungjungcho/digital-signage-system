@@ -141,3 +141,75 @@ export async function PUT(
     );
   }
 }
+
+// PATCH: 콘텐츠 영역(zone) 이동
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ deviceId: string; contentId: string }> }
+) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
+    }
+
+    const { deviceId, contentId } = await params;
+    const data = await request.json();
+    const { zoneId } = data;
+
+    if (!zoneId) {
+      return NextResponse.json({ error: 'zoneId가 필요합니다.' }, { status: 400 });
+    }
+
+    // 디바이스 존재 확인
+    const device = await queryOne(
+      'SELECT * FROM device WHERE id = ? OR alias = ?',
+      [deviceId, deviceId]
+    ) as any;
+
+    if (!device) {
+      return NextResponse.json({ error: '디바이스를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 권한 확인
+    if (user.role !== 'superadmin' && device.user_id !== user.userId) {
+      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+    }
+
+    // 연결 존재 확인
+    const link = await queryOne(
+      'SELECT * FROM device_content WHERE device_id = ? AND content_id = ?',
+      [device.id, contentId]
+    ) as any;
+
+    if (!link) {
+      return NextResponse.json({ error: '연결을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 새 영역의 최대 order 값 조회
+    const maxOrder = await queryOne(
+      'SELECT MAX(`order`) as maxOrder FROM device_content WHERE device_id = ? AND zone_id = ?',
+      [device.id, zoneId]
+    ) as any;
+    const nextOrder = (maxOrder?.maxOrder ?? -1) + 1;
+
+    const now = new Date().toISOString();
+
+    // zone_id와 order 업데이트
+    await execute(
+      'UPDATE device_content SET zone_id = ?, `order` = ?, updatedAt = ? WHERE device_id = ? AND content_id = ?',
+      [zoneId, nextOrder, now, device.id, contentId]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: '영역이 이동되었습니다.'
+    });
+  } catch (error) {
+    console.error('영역 이동 오류:', error);
+    return NextResponse.json(
+      { error: '영역 이동 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}

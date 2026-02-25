@@ -309,7 +309,6 @@ export default function ScheduleViewer() {
       case 'image': return '🖼️';
       case 'video': return '🎬';
       case 'text': return '📝';
-      case 'mixed': return '🔲';
       default: return '📄';
     }
   };

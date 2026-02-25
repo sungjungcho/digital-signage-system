@@ -54,6 +54,7 @@ export async function GET(
           dc.id as linkId,
           dc.\`order\`,
           dc.active,
+          dc.zone_id,
           dc.scheduleType,
           dc.specificDate,
           dc.daysOfWeek,
@@ -66,7 +67,7 @@ export async function GET(
         FROM device_content dc
         JOIN content c ON dc.content_id = c.id
         WHERE dc.device_id = ? AND dc.active = 1
-        ORDER BY dc.\`order\` ASC
+        ORDER BY dc.zone_id ASC, dc.\`order\` ASC
       `, [deviceId, deviceId]) as any[];
     } catch {
       // 새 테이블이 아직 생성되지 않은 경우 무시
@@ -91,25 +92,7 @@ export async function GET(
     // 5. 합치기 (새 구조 우선, 그 뒤에 기존 구조)
     const allContents = [...newContents, ...legacyContents];
 
-    // 복합형 콘텐츠의 metadata를 elements로 파싱
-    const processedContents = allContents.map(content => {
-      if (content.type === 'mixed' && content.metadata) {
-        try {
-          const elements = JSON.parse(content.metadata);
-          return {
-            ...content,
-            elements,
-            metadata: undefined // metadata는 제거하고 elements만 사용
-          };
-        } catch (error) {
-          console.error('복합형 콘텐츠 metadata 파싱 오류:', error);
-          return content;
-        }
-      }
-      return content;
-    });
-
-    return NextResponse.json(processedContents);
+    return NextResponse.json(allContents);
   } catch (error) {
     console.error('콘텐츠 목록 조회 오류:', error);
     return NextResponse.json(

@@ -49,26 +49,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ deviceId
         now,
         contentId
       ]);
-    } else if (existingContent.type === 'mixed') {
-      // 복합형 콘텐츠 수정 (metadata 업데이트)
-      await execute(`
-        UPDATE devicecontent
-        SET metadata = ?,
-            scheduleType = ?, specificDate = ?, daysOfWeek = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?,
-            updatedAt = ?
-        WHERE id = ?
-      `, [
-        data.metadata,
-        data.scheduleType || 'always',
-        data.specificDate || null,
-        data.daysOfWeek || null,
-        data.startDate || null,
-        data.endDate || null,
-        data.startTime || null,
-        data.endTime || null,
-        now,
-        contentId
-      ]);
     } else if (existingContent.type === 'split_layout') {
       // 분할 레이아웃 콘텐츠 수정 (text, duration, metadata 업데이트)
       await execute(`

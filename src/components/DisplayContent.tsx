@@ -1,7 +1,49 @@
-import { Content, ImageContent, VideoContent, TextContent, SplitLayoutContent, MixedContent } from '@/types';
+'use client';
+
+import { Content, ImageContent, VideoContent, TextContent, SplitLayoutContent, AdvancedLayoutContent } from '@/types';
+import { AdvancedLayoutData, LayoutContentItem } from '@/types/layout';
 import SplitLayoutDisplay from './SplitLayoutDisplay';
+import { AdvancedLayoutDisplay } from './layout';
 import YoutubePlayer from './YoutubePlayer';
-import MixedContentDisplay from './MixedContentDisplay';
+import DOMPurify from 'dompurify';
+
+// 기존 split_layout 데이터를 advanced_layout으로 변환
+function migrateSplitLayoutToAdvanced(
+  leftContents: any[],
+  showNotices: boolean = true
+): AdvancedLayoutData {
+  const contents: LayoutContentItem[] = leftContents.map((item: any) => ({
+    id: item.id || String(Date.now()),
+    type: item.type === 'youtube' ? 'youtube' : item.type,
+    duration: item.duration || 5000,
+    url: item.url,
+    text: item.text,
+    fontSize: item.fontSize,
+    fontColor: item.fontColor,
+    backgroundColor: item.backgroundColor,
+    metadata: item.type === 'youtube' ? {
+      youtubeType: 'video',
+      autoplay: true,
+      loop: true,
+      mute: true,
+    } : undefined,
+  }));
+
+  return {
+    version: 2,
+    templateId: 'split_h_2_1', // 기존 2:1 비율 레이아웃
+    areas: {
+      'area-0': {
+        type: 'content',
+        contents,
+      },
+      'area-1': {
+        type: 'widget',
+        widgetType: showNotices ? 'waiting_list' : 'datetime',
+      },
+    },
+  };
+}
 
 interface DisplayContentProps {
   content: Content;
@@ -61,6 +103,11 @@ export default function DisplayContent({ content, deviceId = '', onVideoEnd }: D
       const fontSize = textContent.fontSize
         ? (isNaN(Number(textContent.fontSize)) ? textContent.fontSize : `${textContent.fontSize}px`)
         : '32px';
+      // HTML 태그 지원 (XSS 방지를 위해 DOMPurify로 sanitize)
+      const sanitizedHtml = DOMPurify.sanitize(textContent.text || '', {
+        ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'span', 'div', 'font', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'hr', 'sub', 'sup'],
+        ALLOWED_ATTR: ['style', 'color', 'size', 'class'],
+      });
       return (
         <div className="w-full h-full flex items-center justify-center"
              style={{ backgroundColor: textContent.backgroundColor || '#FFFFFF' }}>
@@ -70,24 +117,33 @@ export default function DisplayContent({ content, deviceId = '', onVideoEnd }: D
               color: textContent.fontColor || '#000000',
               fontSize: fontSize
             }}
-          >
-            {textContent.text}
-          </div>
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
         </div>
       );
     case 'split_layout':
+      // 기존 split_layout을 advanced_layout으로 자동 변환하여 렌더링
       const splitContent = content as SplitLayoutContent;
+      const convertedData = migrateSplitLayoutToAdvanced(
+        splitContent.leftContents || [],
+        true // showNotices 기본값
+      );
       return (
-        <SplitLayoutDisplay
-          contents={splitContent.leftContents}
+        <AdvancedLayoutDisplay
+          data={convertedData}
           deviceId={deviceId}
         />
       );
-    case 'mixed':
-      const mixedContent = content as MixedContent;
+
+    case 'advanced_layout':
+      const advancedContent = content as AdvancedLayoutContent;
       return (
-        <MixedContentDisplay elements={mixedContent.elements} />
+        <AdvancedLayoutDisplay
+          data={advancedContent.layoutData}
+          deviceId={deviceId}
+        />
       );
+
     default:
       return null;
   }

@@ -23,7 +23,7 @@ interface User {
   username: string;
   email: string | null;
   role: 'user' | 'superadmin';
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
   name: string | null;
   max_devices: number;
   created_at: string;
@@ -35,7 +35,7 @@ export default function SuperAdminPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'suspended'>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [userDevices, setUserDevices] = useState<Record<string, Device[]>>({});
@@ -342,6 +342,42 @@ export default function SuperAdminPage() {
     finally { setActionLoading(null); }
   };
 
+  const handleCancelReject = async (userId: string) => {
+    if (!confirm('이 사용자의 거부를 취소하고 대기 상태로 변경하시겠습니까?')) return;
+    setActionLoading(userId);
+    try {
+      const response = await fetch(`/api/superadmin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'pending' }),
+      });
+      if (response.ok) fetchUsers();
+      else {
+        const data = await response.json();
+        alert(data.error || '거부 취소 처리 실패');
+      }
+    } catch { alert('거부 취소 처리 중 오류 발생'); }
+    finally { setActionLoading(null); }
+  };
+
+  const handleSuspend = async (userId: string) => {
+    if (!confirm('이 사용자의 승인을 중지하시겠습니까?\n사용자는 로그인할 수 없게 됩니다.')) return;
+    setActionLoading(userId);
+    try {
+      const response = await fetch(`/api/superadmin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'suspended' }),
+      });
+      if (response.ok) fetchUsers();
+      else {
+        const data = await response.json();
+        alert(data.error || '승인 중지 처리 실패');
+      }
+    } catch { alert('승인 중지 처리 중 오류 발생'); }
+    finally { setActionLoading(null); }
+  };
+
   const handleDelete = async (userId: string, username: string) => {
     if (!confirm(`정말로 '${username}' 사용자를 삭제하시겠습니까?\n사용자의 디바이스는 슈퍼관리자에게 이전됩니다.`)) return;
     setActionLoading(userId);
@@ -413,11 +449,13 @@ export default function SuperAdminPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">대기중</span>;
+        return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">대기</span>;
       case 'approved':
-        return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">승인됨</span>;
+        return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">승인</span>;
       case 'rejected':
-        return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">거부됨</span>;
+        return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">거부</span>;
+      case 'suspended':
+        return <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">승인중지</span>;
       default:
         return null;
     }
@@ -691,8 +729,8 @@ export default function SuperAdminPage() {
         )}
 
         {/* 필터 */}
-        <div className="mb-6 flex space-x-2">
-          {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {(['all', 'pending', 'approved', 'suspended', 'rejected'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -703,15 +741,22 @@ export default function SuperAdminPage() {
               }`}
             >
               {f === 'all' && '전체'}
-              {f === 'pending' && `대기중 (${users.filter(u => u.status === 'pending').length})`}
-              {f === 'approved' && '승인됨'}
-              {f === 'rejected' && '거부됨'}
+              {f === 'pending' && '대기'}
+              {f === 'approved' && '승인'}
+              {f === 'suspended' && '승인중지'}
+              {f === 'rejected' && '거부'}
             </button>
           ))}
         </div>
 
         {/* 사용자 목록 */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          {/* 카운트 표시 */}
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+            <span className="text-sm text-gray-600">
+              총 <span className="font-semibold text-purple-700">{filteredUsers.length}</span>명
+            </span>
+          </div>
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -815,15 +860,24 @@ export default function SuperAdminPage() {
                         </>
                       )}
                       {user.status === 'approved' && (
-                        <button
-                          onClick={() => handleToggleRole(user.id, user.role)}
-                          disabled={actionLoading === user.id}
-                          className="px-3 py-1.5 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50"
-                        >
-                          {user.role === 'superadmin' ? '권한 해제' : '관리자 승격'}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleToggleRole(user.id, user.role)}
+                            disabled={actionLoading === user.id}
+                            className="px-3 py-1.5 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50"
+                          >
+                            {user.role === 'superadmin' ? '권한 해제' : '관리자 승격'}
+                          </button>
+                          <button
+                            onClick={() => handleSuspend(user.id)}
+                            disabled={actionLoading === user.id}
+                            className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                          >
+                            승인 중지
+                          </button>
+                        </>
                       )}
-                      {user.status === 'rejected' && (
+                      {user.status === 'suspended' && (
                         <button
                           onClick={() => handleApprove(user.id)}
                           disabled={actionLoading === user.id}
@@ -831,6 +885,24 @@ export default function SuperAdminPage() {
                         >
                           승인
                         </button>
+                      )}
+                      {user.status === 'rejected' && (
+                        <>
+                          <button
+                            onClick={() => handleCancelReject(user.id)}
+                            disabled={actionLoading === user.id}
+                            className="px-3 py-1.5 bg-yellow-500 text-white text-sm rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                          >
+                            거부 취소
+                          </button>
+                          <button
+                            onClick={() => handleApprove(user.id)}
+                            disabled={actionLoading === user.id}
+                            className="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50"
+                          >
+                            승인
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => handleDelete(user.id, user.username)}

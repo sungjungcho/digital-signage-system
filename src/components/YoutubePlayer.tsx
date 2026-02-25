@@ -19,6 +19,13 @@ export default function YoutubePlayer({
 }: YoutubePlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // 디버깅 로그
+  useEffect(() => {
+    console.log('[YoutubePlayer] videoId:', videoId);
+    console.log('[YoutubePlayer] type:', type);
+    console.log('[YoutubePlayer] autoplay:', autoplay, 'loop:', loop, 'mute:', mute);
+  }, [videoId, type, autoplay, loop, mute]);
+
   useEffect(() => {
     // YouTube iframe API가 이미 로드되었는지 확인
     if (!(window as any).YT) {
@@ -31,7 +38,12 @@ export default function YoutubePlayer({
   }, []);
 
   // URL 파라미터 생성
-  const getEmbedUrl = () => {
+  const getEmbedUrl = (): string => {
+    // videoId 유효성 체크
+    if (!videoId || videoId.trim() === '') {
+      console.error('[YoutubePlayer] videoId가 비어있습니다!');
+      return '';
+    }
     const params = new URLSearchParams({
       autoplay: autoplay ? '1' : '0',
       mute: mute ? '1' : '0',
@@ -47,19 +59,23 @@ export default function YoutubePlayer({
       origin: typeof window !== 'undefined' ? window.location.origin : '',
     });
 
+    let embedUrl: string;
     if (type === 'playlist') {
       params.append('list', videoId);
       if (loop) {
         params.append('loop', '1');
       }
-      return `https://www.youtube.com/embed?${params.toString()}`;
+      embedUrl = `https://www.youtube.com/embed?${params.toString()}`;
     } else {
       if (loop) {
         params.append('loop', '1');
         params.append('playlist', videoId); // loop를 위해서는 playlist 파라미터 필요
       }
-      return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+      embedUrl = `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
     }
+
+    console.log('[YoutubePlayer] 생성된 embed URL:', embedUrl);
+    return embedUrl;
   };
 
   return (

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, use, useRef } from "react";
+import { useEffect, useState, use, useRef, useCallback } from "react";
 import type { devicecontent as DeviceContent } from "@/types/device";
-import MixedContentDisplay from "@/components/MixedContentDisplay";
+import { LAYOUT_TEMPLATES, LayoutTemplateId } from "@/types/layout";
 import YoutubePlayer from "@/components/YoutubePlayer";
 import { filterContentsBySchedule } from "@/lib/scheduleUtils";
 import PinCodeModal from "@/components/display/PinCodeModal";
@@ -31,27 +31,161 @@ type DisplaySettings = {
   notice_max_items: number;
 };
 
+type ContentWithZone = DeviceContent & {
+  zone_id?: string;
+};
+
 const normalizeDurationMs = (content: DeviceContent): number => {
   const raw = Number(content.duration) || 0;
-  if (raw <= 0) return 0;
+  if (raw <= 0) return 5000; // 기본 5초
 
   // 라이브러리(content 테이블)는 초 단위, 기존 devicecontent는 ms 단위를 사용하므로 보정
   return raw < 1000 ? raw * 1000 : raw;
 };
 
+// 단일 콘텐츠 렌더링 컴포넌트
+function ContentRenderer({
+  content,
+  onVideoEnded,
+}: {
+  content: DeviceContent;
+  onVideoEnded?: () => void;
+}) {
+  const durationMs = normalizeDurationMs(content);
+
+  if (content.type === 'text') {
+    return (
+      <div
+        style={{
+          color: content.fontColor || '#ffffff',
+          backgroundColor: content.backgroundColor || '#000000',
+          fontSize: content.fontSize
+            ? (isNaN(Number(content.fontSize)) ? content.fontSize : `${content.fontSize}pt`)
+            : '36pt',
+          padding: '2rem',
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+        }}
+      >
+        {content.text}
+      </div>
+    );
+  }
+
+  if (content.type === 'image') {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-black">
+        <img
+          src={content.url}
+          alt={content.alt || '이미지'}
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
+    );
+  }
+
+  // video 또는 youtube
+  if (content.url?.startsWith('youtube:')) {
+    const youtubeId = content.url.replace('youtube:', '');
+    const metadata = content.metadata ? JSON.parse(content.metadata) : {};
+    return (
+      <div className="w-full h-full">
+        <YoutubePlayer
+          videoId={youtubeId}
+          type={metadata.youtubeType || 'video'}
+          autoplay={metadata.autoplay !== false}
+          loop={metadata.loop !== false}
+          mute={metadata.mute !== false}
+        />
+      </div>
+    );
+  }
+
+  // 일반 비디오
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-black">
+      <video
+        src={content.url}
+        className="max-w-full max-h-full"
+        autoPlay={content.autoplay !== false}
+        loop={durationMs === 0 ? false : content.loop !== false}
+        muted={content.muted !== false}
+        controls={!content.autoplay}
+        onEnded={durationMs === 0 ? onVideoEnded : undefined}
+      />
+    </div>
+  );
+}
+
+// 영역별 콘텐츠 순환 컴포넌트
+function ZoneDisplay({ contents }: { contents: DeviceContent[] }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const currentContent = contents[currentIndex];
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % contents.length);
+  }, [contents.length]);
+
+  useEffect(() => {
+    if (contents.length <= 1) return;
+
+    const currentContent = contents[currentIndex];
+    const durationMs = normalizeDurationMs(currentContent);
+
+    // 비디오 duration이 0이면 onEnded로 처리
+    if (currentContent.type === 'video' && durationMs === 0) {
+      return;
+    }
+
+    timerRef.current = setTimeout(() => {
+      goToNext();
+    }, durationMs);
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [currentIndex, contents, goToNext]);
+
+  if (contents.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-500">
+        콘텐츠 없음
+      </div>
+    );
+  }
+
+  return (
+    <ContentRenderer
+      content={currentContent}
+      onVideoEnded={goToNext}
+    />
+  );
+}
+
 export default function DevicePreviewPage({ params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = use(params);
   const [alert, setAlert] = useState<Alert | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const [allContents, setAllContents] = useState<DeviceContent[]>([]); // 전체 콘텐츠
-  const [contents, setContents] = useState<DeviceContent[]>([]); // 스케줄 필터링된 콘텐츠
-  const [currentContentIndex, setCurrentContentIndex] = useState(0);
-  const [deviceInfo, setDeviceInfo] = useState<{ name: string; location: string } | null>(null);
-  const [realDeviceId, setRealDeviceId] = useState<string | null>(null); // 실제 디바이스 ID (UUID)
+  const [allContents, setAllContents] = useState<ContentWithZone[]>([]);
+  const [contents, setContents] = useState<ContentWithZone[]>([]);
+  const [deviceInfo, setDeviceInfo] = useState<{
+    name: string;
+    location: string;
+    layout_template: LayoutTemplateId;
+  } | null>(null);
+  const [realDeviceId, setRealDeviceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [checkingPin, setCheckingPin] = useState(true);
-  const [hasPin, setHasPin] = useState(true); // PIN 설정 여부
+  const [hasPin, setHasPin] = useState(true);
   const [notices, setNotices] = useState<DeviceNotice[]>([]);
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>({
     notice_enabled: 1,
@@ -81,7 +215,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   // PIN 검증 상태 확인
   useEffect(() => {
     const checkPinStatus = async () => {
-      // 먼저 세션 스토리지 확인
       const verified = sessionStorage.getItem(`device_pin_verified_${deviceId}`);
       if (verified === 'true') {
         setIsPinVerified(true);
@@ -89,14 +222,12 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
         return;
       }
 
-      // API로 PIN 설정 여부 확인
       try {
         const response = await fetch(`/api/devices/${deviceId}/verify-pin`);
         if (response.ok) {
           const data = await response.json();
           setHasPin(data.hasPin);
 
-          // PIN이 설정되지 않은 디바이스는 바로 검증 완료 처리
           if (!data.hasPin) {
             sessionStorage.setItem(`device_pin_verified_${deviceId}`, 'true');
             setIsPinVerified(true);
@@ -112,7 +243,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     checkPinStatus();
   }, [deviceId]);
 
-  const handlePinSuccess = (deviceName: string) => {
+  const handlePinSuccess = () => {
     setIsPinVerified(true);
   };
 
@@ -157,7 +288,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
 
   // WebSocket 연결 및 알림 수신
   useEffect(() => {
-    // realDeviceId가 설정될 때까지 대기
     if (!realDeviceId) return;
 
     let reconnectTimer: NodeJS.Timeout;
@@ -172,12 +302,8 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
         const ws = new window.WebSocket(wsUrl);
         wsRef.current = ws;
 
-        ws.onopen = () => {
-        };
-
-        ws.onerror = () => {
-          // 초기 연결 오류는 무시 (정상적인 과정)
-        };
+        ws.onopen = () => {};
+        ws.onerror = () => {};
 
         ws.onmessage = (event: MessageEvent) => {
           let data;
@@ -193,15 +319,12 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
           } else if (data.type === "init" && data.alerts && Array.isArray(data.alerts)) {
             if (data.alerts.length > 0) setAlert(data.alerts[data.alerts.length - 1]);
           } else if (data.type === "contentUpdate") {
-            // 콘텐츠 업데이트 알림 수신 시 페이지 새로고침
             window.location.reload();
           }
         };
 
         ws.onclose = () => {
           wsRef.current = null;
-
-          // 5초 후 재연결 시도
           if (!isCleanedUp) {
             reconnectTimer = setTimeout(() => {
               connect();
@@ -210,7 +333,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
         };
       } catch (error) {
         console.error('[WebSocket] 연결 생성 실패:', error);
-        // 5초 후 재연결 시도
         if (!isCleanedUp) {
           reconnectTimer = setTimeout(connect, 5000);
         }
@@ -233,16 +355,13 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
   useEffect(() => {
     if (!alert) return;
 
-    // duration이 있으면 해당 시간 후에 알림 닫기
     if (alert.duration) {
       const timer = setTimeout(() => {
         setAlert(null);
       }, alert.duration);
-
       return () => clearTimeout(timer);
     }
 
-    // expiresAt이 있으면 해당 시간까지 남은 시간 계산
     if (alert.expiresAt) {
       const expiresTime = new Date(alert.expiresAt).getTime();
       const now = Date.now();
@@ -252,10 +371,8 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
         const timer = setTimeout(() => {
           setAlert(null);
         }, remaining);
-
         return () => clearTimeout(timer);
       } else {
-        // 이미 만료된 알림이면 즉시 닫기
         setAlert(null);
       }
     }
@@ -271,10 +388,13 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
           return;
         }
         const deviceData = await deviceResponse.json();
-        setDeviceInfo({ name: deviceData.name, location: deviceData.location });
-        setRealDeviceId(deviceData.id); // 실제 디바이스 ID 저장
+        setDeviceInfo({
+          name: deviceData.name,
+          location: deviceData.location,
+          layout_template: deviceData.layout_template || 'fullscreen',
+        });
+        setRealDeviceId(deviceData.id);
 
-        // 모든 콘텐츠 가져오기
         const contentsResponse = await fetch(`/api/devices/${deviceId}/contents`);
         if (!contentsResponse.ok) {
           console.error("콘텐츠 목록을 불러오는데 실패했습니다.");
@@ -282,7 +402,12 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
         }
         const contentsData = await contentsResponse.json();
 
-        const sortedContents = contentsData.sort((a: DeviceContent, b: DeviceContent) => a.order - b.order);
+        const sortedContents = contentsData.sort((a: ContentWithZone, b: ContentWithZone) => {
+          const zoneA = a.zone_id || 'area-0';
+          const zoneB = b.zone_id || 'area-0';
+          if (zoneA !== zoneB) return zoneA.localeCompare(zoneB);
+          return (a.order || 0) - (b.order || 0);
+        });
         setAllContents(sortedContents);
         setLoading(false);
       } catch (error) {
@@ -304,19 +429,15 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
           prev.every((item, idx) => item.id === filtered[idx]?.id);
         return same ? prev : filtered;
       });
-
-      // 현재 인덱스가 필터링된 콘텐츠 범위를 벗어나면 0으로 리셋
-      setCurrentContentIndex((prevIndex) => (filtered.length > 0 && prevIndex >= filtered.length ? 0 : prevIndex));
     };
 
-    // 초기 필터링
     updateFilteredContents();
 
-    // 1분마다 필터링 업데이트
     const filterInterval = setInterval(updateFilteredContents, 60000);
     return () => clearInterval(filterInterval);
   }, [allContents]);
 
+  // 공지 데이터 가져오기
   useEffect(() => {
     if (!isPinVerified) return;
 
@@ -351,6 +472,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     return () => clearInterval(timer);
   }, [deviceId, isPinVerified]);
 
+  // 공지 순환
   useEffect(() => {
     if (!displaySettings.notice_enabled || notices.length <= 1) return;
     const intervalMs = Math.max(3, displaySettings.notice_item_duration_sec) * 1000;
@@ -359,23 +481,6 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     }, intervalMs);
     return () => clearInterval(timer);
   }, [displaySettings.notice_enabled, displaySettings.notice_item_duration_sec, notices.length]);
-
-  // 콘텐츠 순환 표시
-  useEffect(() => {
-    if (contents.length === 0) return;
-    const currentContent = contents[currentContentIndex];
-    const durationMs = normalizeDurationMs(currentContent);
-
-    // 동영상 duration이 0이면 재생 종료 이벤트로 다음 콘텐츠 이동
-    if (currentContent.type === 'video' && durationMs === 0) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setCurrentContentIndex((prevIndex) => (prevIndex + 1) % contents.length);
-    }, durationMs);
-    return () => clearTimeout(timer);
-  }, [currentContentIndex, contents]);
 
   // PIN 검증 상태 확인 중
   if (checkingPin) {
@@ -399,18 +504,38 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     );
   }
 
-  // 알림이 있으면 모달 형태로 중앙에 표시
+  // 알림 모달
   const alertModal = alert ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
       <div className="bg-white rounded-lg shadow-2xl px-10 py-8 max-w-lg w-full flex flex-col items-center animate-pulse border-4 border-red-600">
         <div className="text-3xl font-bold text-red-700 mb-4">긴급 알림</div>
         <div className="text-xl text-gray-900 text-center mb-6 whitespace-pre-line break-words">{alert.message}</div>
-        {/* 닫기 버튼은 필요시 추가 가능 */}
       </div>
     </div>
   ) : null;
 
-  if (contents.length === 0) {
+  // 레이아웃 템플릿 가져오기
+  const layoutTemplate = deviceInfo?.layout_template || 'fullscreen';
+  const template = LAYOUT_TEMPLATES[layoutTemplate] || LAYOUT_TEMPLATES.fullscreen;
+
+  // 영역별로 콘텐츠 그룹화
+  const contentsByZone: Record<string, ContentWithZone[]> = {};
+  template.areas.forEach(area => {
+    contentsByZone[area.id] = [];
+  });
+  contents.forEach(content => {
+    const zoneId = content.zone_id || 'area-0';
+    if (contentsByZone[zoneId]) {
+      contentsByZone[zoneId].push(content);
+    } else {
+      // 해당 영역이 없으면 area-0에 추가
+      contentsByZone['area-0']?.push(content);
+    }
+  });
+
+  // 전체 콘텐츠가 없는 경우
+  const hasAnyContent = Object.values(contentsByZone).some(arr => arr.length > 0);
+  if (!hasAnyContent) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
         {alertModal}
@@ -421,86 +546,39 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     );
   }
 
-  const currentContent = contents[currentContentIndex];
-  const currentDurationMs = normalizeDurationMs(currentContent);
   const visibleNotices = notices.slice(0, Math.max(1, displaySettings.notice_max_items));
   const currentNotice = visibleNotices.length > 0 ? visibleNotices[noticeIndex % visibleNotices.length] : null;
   const shouldShowNoticeOverlay = !alert && displaySettings.notice_enabled === 1 && visibleNotices.length > 0;
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative">
+    <div className="min-h-screen bg-black relative">
       {alertModal}
-      <div className="flex-1 w-full flex items-center justify-center">
-        {currentContent.type === 'mixed' ? (
-          <div className="w-full h-screen">
-            <MixedContentDisplay elements={(currentContent as any).elements || []} />
-          </div>
-        ) : currentContent.type === 'split_layout' ? (
-          <div className="w-full h-screen">
-            <MixedContentDisplay elements={[{
-              type: 'split_layout',
-              order: 0,
-              duration: currentContent.duration,
-              leftContents: JSON.parse(currentContent.text || '[]'),
-              metadata: currentContent.metadata ? JSON.parse(currentContent.metadata) : { showNotices: true }
-            }]} />
-          </div>
-        ) : currentContent.type === 'text' ? (
+
+      {/* 레이아웃 그리드 */}
+      <div
+        className="w-full h-screen"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: template.gridTemplate.columns,
+          gridTemplateRows: template.gridTemplate.rows,
+          gap: '2px',
+        }}
+      >
+        {template.areas.map(area => (
           <div
+            key={area.id}
             style={{
-              color: currentContent.fontColor || '#ffffff',
-              backgroundColor: currentContent.backgroundColor || '#000000',
-              fontSize: currentContent.fontSize
-                ? (isNaN(Number(currentContent.fontSize)) ? currentContent.fontSize : `${currentContent.fontSize}pt`)
-                : '36pt',
-              padding: '2rem',
-              width: '100%',
-              height: '100vh',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
+              gridRow: area.style.gridRow,
+              gridColumn: area.style.gridColumn,
+              overflow: 'hidden',
             }}
           >
-            {currentContent.text}
+            <ZoneDisplay contents={contentsByZone[area.id] || []} />
           </div>
-        ) : currentContent.type === 'image' ? (
-          <div className="w-full h-screen flex items-center justify-center">
-            <img
-              src={currentContent.url}
-              alt={currentContent.alt || '이미지'}
-              className="max-w-full max-h-full object-contain"
-            />
-          </div>
-        ) : (
-          <div className="w-full h-screen flex items-center justify-center">
-            {currentContent.url?.startsWith('youtube:') ? (
-              <div className="w-full h-full">
-                <YoutubePlayer
-                  videoId={currentContent.url.replace('youtube:', '')}
-                  autoplay={currentContent.autoplay !== false}
-                  loop={currentContent.loop !== false}
-                  mute={currentContent.muted !== false}
-                />
-              </div>
-            ) : (
-              <video
-                src={currentContent.url}
-                className="max-w-full max-h-full"
-                autoPlay={currentContent.autoplay !== false}
-                loop={currentDurationMs === 0 ? false : currentContent.loop !== false}
-                muted={currentContent.muted !== false}
-                controls={!currentContent.autoplay}
-                onEnded={
-                  currentDurationMs === 0
-                    ? () => setCurrentContentIndex((prevIndex) => (prevIndex + 1) % contents.length)
-                    : undefined
-                }
-              />
-            )}
-          </div>
-        )}
+        ))}
       </div>
+
+      {/* 공지 오버레이 */}
       {shouldShowNoticeOverlay && (
         displaySettings.notice_default_mode === 'side_panel' ? (
           <div className="absolute top-4 right-4 z-30 w-[28rem] max-h-[40vh] bg-black/70 backdrop-blur-sm border border-cyan-400/60 rounded-xl p-4 text-white">

@@ -1,3 +1,5 @@
+import { LayoutTemplateId } from './layout';
+
 export type device = {
   id: string;
   name: string;
@@ -9,6 +11,7 @@ export type device = {
   lastConnected?: string;
   user_id: string | null;  // 소유자 ID
   pin_code: string;        // 디스플레이 접근 PIN 코드 (4자리)
+  layout_template: LayoutTemplateId;  // 레이아웃 템플릿
   createdAt: string;
   updatedAt: string;
 };
@@ -16,7 +19,7 @@ export type device = {
 export type devicecontent = {
   id: string;
   deviceId: string;
-  type: 'image' | 'video' | 'text' | 'split_layout' | 'mixed';
+  type: 'image' | 'video' | 'text' | 'split_layout' | 'advanced_layout';
   url?: string;
   text?: string;
   duration: number;
@@ -30,6 +33,7 @@ export type devicecontent = {
   metadata?: string; // 유튜브, 복합형 등 추가 정보를 JSON으로 저장
   order: number;
   active: boolean;
+  zone_id?: string; // 레이아웃 영역 ID (area-0, area-1 등)
   // 스케줄 필드
   scheduleType?: 'always' | 'specific_date' | 'days_of_week' | 'date_range';
   specificDate?: string; // "2026-01-15" (specific_date인 경우)

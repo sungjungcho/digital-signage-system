@@ -72,7 +72,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
     setEditingDeviceId(device.id);
     setEditedName(device.name);
     setEditedAlias(device.alias || '');
-    setEditedPinCode(device.pin_code || '0000');
+    setEditedPinCode(device.pin_code || '');
   };
 
   const handleSaveDevice = async (deviceId: string) => {
@@ -88,8 +88,9 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
       alert('별칭은 영문, 숫자, 한글, 하이픈(-)만 사용할 수 있습니다.');
       return;
     }
-    if (!/^\d{4}$/.test(editedPinCode)) {
-      alert('PIN 코드는 4자리 숫자여야 합니다.');
+    // PIN은 빈 값(해제) 또는 4자리 숫자만 허용
+    if (editedPinCode !== '' && !/^\d{4}$/.test(editedPinCode)) {
+      alert('PIN 코드는 4자리 숫자이거나 빈 값(PIN 해제)이어야 합니다.');
       return;
     }
 
@@ -102,7 +103,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
         body: JSON.stringify({
           name: editedName,
           alias: editedAlias,
-          pin_code: editedPinCode
+          pin_code: editedPinCode || null
         }),
       });
 
@@ -197,7 +198,7 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                       setEditedPinCode(v);
                     }}
                     className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="4자리 숫자"
+                    placeholder="비워두면 PIN 없음"
                     maxLength={4}
                   />
                 </div>
