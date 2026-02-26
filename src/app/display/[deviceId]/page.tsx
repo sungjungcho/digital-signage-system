@@ -69,6 +69,7 @@ function ContentRenderer({
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
+          whiteSpace: 'pre-line',
         }}
       >
         {content.text}
@@ -78,7 +79,10 @@ function ContentRenderer({
 
   if (content.type === 'image') {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-black">
+      <div
+        className="w-full h-full flex items-center justify-center"
+        style={{ backgroundColor: content.backgroundColor || '#000000' }}
+      >
         <img
           src={content.url}
           alt={content.alt || '이미지'}

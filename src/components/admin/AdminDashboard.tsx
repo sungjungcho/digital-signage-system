@@ -55,6 +55,7 @@ export default function AdminDashboard() {
   const [deviceFormLoading, setDeviceFormLoading] = useState(false);
   const [deviceFormError, setDeviceFormError] = useState('');
   const [deviceFormSuccess, setDeviceFormSuccess] = useState('');
+  const [showLayoutConfirm, setShowLayoutConfirm] = useState(false);
 
   // 디바이스 한도 관련
   const [userMaxDevices, setUserMaxDevices] = useState<number>(3);
@@ -113,8 +114,8 @@ export default function AdminDashboard() {
     }
   };
 
-  // 디바이스 등록 요청
-  const handleCreateDevice = async (e: React.FormEvent) => {
+  // 디바이스 등록 요청 - 확인 창 표시
+  const handleCreateDevice = (e: React.FormEvent) => {
     e.preventDefault();
     setDeviceFormError('');
     setDeviceFormSuccess('');
@@ -132,6 +133,13 @@ export default function AdminDashboard() {
       return;
     }
 
+    // 유효성 검사 통과 시 확인 모달 표시
+    setShowLayoutConfirm(true);
+  };
+
+  // 실제 디바이스 등록 처리
+  const handleConfirmCreate = async () => {
+    setShowLayoutConfirm(false);
     setDeviceFormLoading(true);
     try {
       const response = await fetch('/api/devices', {
@@ -690,6 +698,40 @@ export default function AdminDashboard() {
       <div className="max-w-[1920px] mx-auto px-6 py-6">
         {renderTabContent()}
       </div>
+
+      {/* 레이아웃 선택 확인 모달 */}
+      {showLayoutConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-12 w-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">레이아웃 선택 확인</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              해당 레이아웃 선택 시 변경이 불가합니다.<br />
+              해당 레이아웃을 선택하시겠습니까?
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleConfirmCreate}
+                className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium"
+              >
+                예
+              </button>
+              <button
+                onClick={() => setShowLayoutConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium"
+              >
+                아니오
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

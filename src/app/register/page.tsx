@@ -26,17 +26,24 @@ export default function RegisterPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    // 아이디 필드: 영문, 숫자, 언더스코어만 허용 (한글 등 특수문자 필터링)
+    if (name === "username") {
+      const filteredValue = value.replace(/[^a-zA-Z0-9_]/g, "");
+      setFormData({
+        ...formData,
+        [name]: filteredValue,
+      });
+      setUsernameChecked(false);
+      setUsernameAvailable(false);
+      setUsernameCheckMessage("");
+      return;
+    }
+
     setFormData({
       ...formData,
       [name]: value,
     });
-
-    // 아이디가 변경되면 중복체크 상태 초기화
-    if (name === "username") {
-      setUsernameChecked(false);
-      setUsernameAvailable(false);
-      setUsernameCheckMessage("");
-    }
   };
 
   // 아이디 중복체크
@@ -193,6 +200,9 @@ export default function RegisterPage() {
                 placeholder="3-20자 영문, 숫자, 언더스코어"
                 required
                 autoComplete="username"
+                maxLength={20}
+                minLength={3}
+                pattern="[a-zA-Z0-9_]{3,20}"
               />
               <button
                 type="button"

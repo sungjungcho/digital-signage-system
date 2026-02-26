@@ -54,12 +54,16 @@ interface DisplayContentProps {
 export default function DisplayContent({ content, deviceId = '', onVideoEnd }: DisplayContentProps) {
   switch (content.type) {
     case 'image':
+      const imageContent = content as ImageContent;
       return (
-        <div className="w-full h-full relative">
+        <div
+          className="w-full h-full relative flex items-center justify-center"
+          style={{ backgroundColor: imageContent.backgroundColor || '#000000' }}
+        >
           <img
-            src={(content as ImageContent).url}
-            alt={(content as ImageContent).alt || 'Display content'}
-            className="w-full h-full object-contain"
+            src={imageContent.url}
+            alt={imageContent.alt || 'Display content'}
+            className="max-w-full max-h-full object-contain"
           />
         </div>
       );
@@ -103,8 +107,9 @@ export default function DisplayContent({ content, deviceId = '', onVideoEnd }: D
       const fontSize = textContent.fontSize
         ? (isNaN(Number(textContent.fontSize)) ? textContent.fontSize : `${textContent.fontSize}px`)
         : '32px';
-      // HTML 태그 지원 (XSS 방지를 위해 DOMPurify로 sanitize)
-      const sanitizedHtml = DOMPurify.sanitize(textContent.text || '', {
+      // 줄바꿈(\n)을 <br>로 변환 후 HTML 태그 지원 (XSS 방지를 위해 DOMPurify로 sanitize)
+      const textWithBreaks = (textContent.text || '').replace(/\n/g, '<br>');
+      const sanitizedHtml = DOMPurify.sanitize(textWithBreaks, {
         ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'span', 'div', 'font', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'hr', 'sub', 'sup'],
         ALLOWED_ATTR: ['style', 'color', 'size', 'class'],
       });
@@ -115,7 +120,8 @@ export default function DisplayContent({ content, deviceId = '', onVideoEnd }: D
             className="font-bold"
             style={{
               color: textContent.fontColor || '#000000',
-              fontSize: fontSize
+              fontSize: fontSize,
+              whiteSpace: 'pre-line'
             }}
             dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />

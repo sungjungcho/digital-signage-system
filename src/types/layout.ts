@@ -46,7 +46,7 @@ export interface LayoutContentItem {
   text?: string;              // text
   fontSize?: string;          // text
   fontColor?: string;         // text
-  backgroundColor?: string;   // text
+  backgroundColor?: string;   // text, image
   metadata?: {                // youtube 등 추가 정보
     youtubeType?: 'video' | 'live' | 'playlist';
     autoplay?: boolean;

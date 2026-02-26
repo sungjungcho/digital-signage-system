@@ -1594,7 +1594,7 @@ export default function ContentManager({ device }: ContentManagerProps) {
                 <div className="space-y-2 flex-grow mr-4">
                   {content.type === 'text' ? (
                     <>
-                      <p className="font-medium break-words">{content.text}</p>
+                      <p className="font-medium break-words" style={{ whiteSpace: 'pre-line' }}>{content.text}</p>
                       <div className="flex flex-wrap gap-2 text-sm">
                         <span className="text-black">글자 크기: {content.fontSize}</span>
                         <span className="text-black">글자 색상: {content.fontColor}</span>

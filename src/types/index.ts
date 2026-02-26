@@ -17,6 +17,7 @@ export interface ImageContent extends BaseContent {
   type: 'image';
   url: string;
   alt?: string;
+  backgroundColor?: string;
 }
 
 // 동영상 콘텐츠

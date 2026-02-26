@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const name = formData.get('name') as string;
     const duration = parseInt(formData.get('duration') as string) || 10;
+    const backgroundColor = formData.get('backgroundColor') as string || null;
 
     if (!file) {
       return NextResponse.json({ error: '파일이 필요합니다.' }, { status: 400 });
@@ -70,9 +71,9 @@ export async function POST(request: NextRequest) {
     await execute(`
       INSERT INTO content (
         id, name, type, url, duration,
-        autoplay, \`loop\`, muted,
+        autoplay, \`loop\`, muted, backgroundColor,
         user_id, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       contentId,
       contentName,
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
       contentType === 'video' ? 1 : 0,
       contentType === 'video' ? 1 : 0,
       1,
+      contentType === 'image' ? backgroundColor : null,
       user.userId,
       now,
       now

@@ -130,6 +130,7 @@ export default function TemplateSelector({ selected, onChange }: TemplateSelecto
       <div className="grid grid-cols-5 gap-3">
         {LAYOUT_TEMPLATE_LIST.map((template) => (
           <button
+            type="button"
             key={template.id}
             onClick={() => onChange(template.id)}
             className={`

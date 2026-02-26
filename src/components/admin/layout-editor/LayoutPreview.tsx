@@ -23,7 +23,7 @@ export default function LayoutPreview({ templateId, areas }: LayoutPreviewProps)
 
     if (!content) {
       return (
-        <div className="w-full h-full flex items-center justify-center bg-gray-700 text-gray-400 text-xs">
+        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500 text-xs">
           {areaName}
           <br />
           (비어있음)
@@ -33,8 +33,8 @@ export default function LayoutPreview({ templateId, areas }: LayoutPreviewProps)
 
     if (content.type === 'widget') {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-green-800 text-white text-xs p-2">
-          <span className="text-green-300 mb-1">위젯</span>
+        <div className="w-full h-full flex flex-col items-center justify-center bg-green-100 text-green-800 text-xs p-2">
+          <span className="text-green-600 mb-1 font-medium">위젯</span>
           <span>{content.widgetType === 'datetime' ? '날짜/시간' : '대기환자'}</span>
         </div>
       );
@@ -43,27 +43,27 @@ export default function LayoutPreview({ templateId, areas }: LayoutPreviewProps)
     if (content.type === 'content' && content.contents) {
       const count = content.contents.length;
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-blue-800 text-white text-xs p-2">
-          <span className="text-blue-300 mb-1">콘텐츠</span>
+        <div className="w-full h-full flex flex-col items-center justify-center bg-blue-100 text-blue-800 text-xs p-2">
+          <span className="text-blue-600 mb-1 font-medium">콘텐츠</span>
           <span>{count}개 {count > 1 ? '순환' : ''}</span>
         </div>
       );
     }
 
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-600 text-gray-300 text-xs">
+      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500 text-xs">
         {areaName}
       </div>
     );
   };
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden">
-      <div className="p-2 bg-gray-800 text-white text-xs text-center">
+    <div className="bg-white rounded-lg overflow-hidden border border-gray-300">
+      <div className="p-2 bg-gray-700 text-white text-xs text-center">
         미리보기 - {template.name}
       </div>
       <div
-        className="grid aspect-video"
+        className="grid aspect-video bg-white p-1 gap-1"
         style={{
           gridTemplateColumns: template.gridTemplate.columns,
           gridTemplateRows: template.gridTemplate.rows,
@@ -76,7 +76,7 @@ export default function LayoutPreview({ templateId, areas }: LayoutPreviewProps)
               gridRow: area.style.gridRow,
               gridColumn: area.style.gridColumn,
             }}
-            className="border border-gray-700"
+            className="border-2 border-black"
           >
             {getAreaPreview(area.id, area.name)}
           </div>

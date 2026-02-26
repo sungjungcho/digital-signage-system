@@ -139,6 +139,9 @@ export default function ContentLibrary() {
     backgroundColor: '#000000',
   });
 
+  // 이미지 배경색 상태
+  const [imageBackgroundColor, setImageBackgroundColor] = useState('#000000');
+
   // 콘텐츠 목록 조회
   const fetchContents = async () => {
     try {
@@ -188,6 +191,10 @@ export default function ContentLibrary() {
           : file.name.replace(/\.[^/.]+$/, '');
         formData.append('name', fileName);
         formData.append('duration', uploadDuration.toString());
+        // 이미지 파일인 경우 배경색 추가
+        if (file.type.startsWith('image/')) {
+          formData.append('backgroundColor', imageBackgroundColor);
+        }
 
         try {
           const response = await fetch('/api/contents/library-upload', {
@@ -215,6 +222,7 @@ export default function ContentLibrary() {
       setUploadFiles([]);
       setUploadName('');
       setUploadDuration(10);
+      setImageBackgroundColor('#000000');
       fetchContents();
     } catch (error) {
       console.error('업로드 오류:', error);
@@ -351,13 +359,27 @@ export default function ContentLibrary() {
           body: formData,
         });
       } else {
+        // 텍스트/이미지 콘텐츠인 경우 추가 필드 포함
+        const updateData: Record<string, unknown> = {
+          name: editingContent.name,
+          duration: editingContent.duration,
+        };
+
+        if (editingContent.type === 'text') {
+          updateData.text = editingContent.text;
+          updateData.fontSize = editingContent.fontSize;
+          updateData.fontColor = editingContent.fontColor;
+          updateData.backgroundColor = editingContent.backgroundColor;
+        }
+
+        if (editingContent.type === 'image') {
+          updateData.backgroundColor = editingContent.backgroundColor;
+        }
+
         response = await fetch(`/api/contents/${editingContent.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: editingContent.name,
-            duration: editingContent.duration,
-          }),
+          body: JSON.stringify(updateData),
         });
       }
 
@@ -518,6 +540,7 @@ export default function ContentLibrary() {
                       backgroundColor: content.backgroundColor || '#000000',
                       color: content.fontColor || '#ffffff',
                       fontSize: `${Math.min(parseInt(content.fontSize || '24') / 2, 16)}px`,
+                      whiteSpace: 'pre-line',
                     }}
                   >
                     <span className="line-clamp-4 break-words">
@@ -673,6 +696,31 @@ export default function ContentLibrary() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {/* 이미지 파일이 포함된 경우 배경색 선택 */}
+                  {uploadFiles.some(file => file.type.startsWith('image/')) && (
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        이미지 배경 색상
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={imageBackgroundColor}
+                          onChange={(e) => setImageBackgroundColor(e.target.value)}
+                          className="w-12 h-8 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <span className="text-sm text-gray-600">{imageBackgroundColor}</span>
+                        <button
+                          type="button"
+                          onClick={() => setImageBackgroundColor('#000000')}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          검정으로 초기화
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">이미지가 화면보다 작을 때 표시되는 배경 색상입니다.</p>
                     </div>
                   )}
                 </div>
@@ -845,6 +893,7 @@ export default function ContentLibrary() {
                   setYoutubeUrl('');
                   setUploadMode('file');
                   setTextContent({ text: '', fontSize: '36', fontColor: '#ffffff', backgroundColor: '#000000' });
+                  setImageBackgroundColor('#000000');
                 }}
                 disabled={uploading}
                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
@@ -932,6 +981,97 @@ export default function ContentLibrary() {
                     </p>
                   )}
                 </div>
+              )}
+
+              {editingContent.type === 'image' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    배경 색상
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={editingContent.backgroundColor || '#000000'}
+                      onChange={(e) =>
+                        setEditingContent({ ...editingContent, backgroundColor: e.target.value })
+                      }
+                      className="w-12 h-8 rounded border border-gray-300 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-600">{editingContent.backgroundColor || '#000000'}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">이미지가 화면보다 작을 때 표시되는 배경 색상입니다.</p>
+                </div>
+              )}
+
+              {editingContent.type === 'text' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      텍스트 내용
+                    </label>
+                    <textarea
+                      value={editingContent.text || ''}
+                      onChange={(e) =>
+                        setEditingContent({ ...editingContent, text: e.target.value })
+                      }
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+                      placeholder="표시할 텍스트를 입력하세요"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">글자 크기</label>
+                      <select
+                        value={editingContent.fontSize || '36'}
+                        onChange={(e) =>
+                          setEditingContent({ ...editingContent, fontSize: e.target.value })
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="18">18pt</option>
+                        <option value="24">24pt</option>
+                        <option value="36">36pt</option>
+                        <option value="48">48pt</option>
+                        <option value="72">72pt</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">글자 색상</label>
+                      <input
+                        type="color"
+                        value={editingContent.fontColor || '#ffffff'}
+                        onChange={(e) =>
+                          setEditingContent({ ...editingContent, fontColor: e.target.value })
+                        }
+                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">배경 색상</label>
+                      <input
+                        type="color"
+                        value={editingContent.backgroundColor || '#000000'}
+                        onChange={(e) =>
+                          setEditingContent({ ...editingContent, backgroundColor: e.target.value })
+                        }
+                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  {/* 미리보기 */}
+                  <div
+                    className="p-4 rounded-lg text-center"
+                    style={{
+                      backgroundColor: editingContent.backgroundColor || '#000000',
+                      color: editingContent.fontColor || '#ffffff',
+                      fontSize: `${parseInt(editingContent.fontSize || '36') / 2}px`,
+                      whiteSpace: 'pre-line',
+                    }}
+                  >
+                    {editingContent.text || '미리보기'}
+                  </div>
+                </>
               )}
 
               {editingContent.linkedDeviceCount > 0 && (
