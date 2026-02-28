@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { queryOne } from '@/lib/db';
 
+interface DbUser {
+  max_devices: number;
+  email: string | null;
+  phone: string | null;
+  name: string | null;
+}
+
 export async function GET() {
   try {
     const user = await getCurrentUser();
@@ -13,14 +20,20 @@ export async function GET() {
       );
     }
 
-    // 사용자의 max_devices 조회
-    const dbUser = await queryOne('SELECT max_devices FROM users WHERE id = ?', [user.userId]) as { max_devices: number } | undefined;
+    // 사용자 정보 조회
+    const dbUser = await queryOne(
+      'SELECT max_devices, email, phone, name FROM users WHERE id = ?',
+      [user.userId]
+    ) as DbUser | undefined;
 
     return NextResponse.json({
       authenticated: true,
       user: {
         ...user,
         max_devices: dbUser?.max_devices || 3,
+        email: dbUser?.email || null,
+        phone: dbUser?.phone || null,
+        name: dbUser?.name || null,
       },
     });
   } catch (error) {

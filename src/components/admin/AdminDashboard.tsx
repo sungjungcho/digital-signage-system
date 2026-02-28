@@ -43,6 +43,26 @@ export default function AdminDashboard() {
   const [sending, setSending] = useState(false);
   const [alertResult, setAlertResult] = useState<string | null>(null);
 
+  // 사용자 정보 모달
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<{
+    username: string;
+    email: string;
+    phone: string;
+    name: string;
+  }>({ username: '', email: '', phone: '', name: '' });
+  const [profileForm, setProfileForm] = useState<{
+    email: string;
+    phone: string;
+    name: string;
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }>({ email: '', phone: '', name: '', currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+
   // 디바이스 등록 폼
   const [showDeviceForm, setShowDeviceForm] = useState(false);
   const [deviceForm, setDeviceForm] = useState<{
@@ -111,6 +131,87 @@ export default function AdminDashboard() {
       router.push('/admin/login');
     } catch (error) {
       console.error('로그아웃 오류:', error);
+    }
+  };
+
+  // 프로필 모달 열기
+  const handleOpenProfileModal = async () => {
+    try {
+      const response = await fetch('/api/auth/profile');
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile({
+          username: data.username || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          name: data.name || '',
+        });
+        setProfileForm({
+          email: data.email || '',
+          phone: data.phone || '',
+          name: data.name || '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+        setProfileError('');
+        setProfileSuccess('');
+        setShowProfileModal(true);
+      }
+    } catch (error) {
+      console.error('프로필 조회 오류:', error);
+    }
+  };
+
+  // 프로필 저장
+  const handleSaveProfile = async () => {
+    setProfileError('');
+    setProfileSuccess('');
+
+    // 새 비밀번호 확인
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword) {
+      setProfileError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: profileForm.email || null,
+          phone: profileForm.phone || null,
+          name: profileForm.name || null,
+          currentPassword: profileForm.currentPassword || undefined,
+          newPassword: profileForm.newPassword || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setProfileSuccess(data.message);
+        setUserProfile(prev => ({
+          ...prev,
+          email: profileForm.email,
+          phone: profileForm.phone,
+          name: profileForm.name,
+        }));
+        // 비밀번호 필드 초기화
+        setProfileForm(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        }));
+      } else {
+        setProfileError(data.error || '프로필 수정에 실패했습니다.');
+      }
+    } catch {
+      setProfileError('프로필 수정 중 오류가 발생했습니다.');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -659,6 +760,15 @@ export default function AdminDashboard() {
                 </a>
               )}
               <button
+                onClick={handleOpenProfileModal}
+                className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition shadow-sm border border-blue-200 font-medium"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>내 정보</span>
+              </button>
+              <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition shadow-sm border border-gray-300 font-medium"
               >
@@ -728,6 +838,143 @@ export default function AdminDashboard() {
               >
                 아니오
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 사용자 정보 모달 */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800">내 정보</h3>
+              </div>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* 사용자 ID 표시 */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500">사용자 ID</p>
+              <p className="font-semibold text-gray-800">{userProfile.username}</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* 이름 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="이름을 입력하세요"
+                />
+              </div>
+
+              {/* 이메일 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="이메일을 입력하세요"
+                />
+              </div>
+
+              {/* 전화번호 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
+                <input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="전화번호를 입력하세요"
+                />
+              </div>
+
+              {/* 비밀번호 변경 섹션 */}
+              <div className="pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">비밀번호 변경</h4>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">현재 비밀번호</label>
+                    <input
+                      type="password"
+                      value={profileForm.currentPassword}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="현재 비밀번호"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">새 비밀번호</label>
+                    <input
+                      type="password"
+                      value={profileForm.newPassword}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="새 비밀번호 (4자 이상)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">새 비밀번호 확인</label>
+                    <input
+                      type="password"
+                      value={profileForm.confirmPassword}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="새 비밀번호 확인"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 에러/성공 메시지 */}
+              {profileError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{profileError}</p>
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700">{profileSuccess}</p>
+                </div>
+              )}
+
+              {/* 버튼 */}
+              <div className="flex space-x-3 pt-2">
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition font-medium disabled:opacity-50"
+                >
+                  {profileSaving ? '저장 중...' : '저장'}
+                </button>
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         </div>
