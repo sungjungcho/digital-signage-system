@@ -96,10 +96,12 @@ export async function PATCH(
       );
     }
 
-    // 권한 확인: 일반 사용자는 자기 디바이스의 PIN만 수정 가능
+    // 권한 확인
     const isOwner = device.user_id === userId;
     const isSuperAdmin = userRole === 'superadmin';
     const isPinOnlyUpdate = Object.keys(data).length === 1 && 'pin_code' in data;
+    // 거부된 디바이스를 재요청(pending으로 변경)하는 경우
+    const isReRequest = Object.keys(data).length === 1 && data.approval_status === 'pending' && device.approval_status === 'rejected';
 
     if (!isSuperAdmin) {
       if (!isOwner) {
@@ -108,10 +110,10 @@ export async function PATCH(
           { status: 403 }
         );
       }
-      // 일반 사용자는 PIN만 수정 가능
-      if (!isPinOnlyUpdate) {
+      // 일반 사용자는 PIN 수정 또는 거부된 디바이스 재요청만 가능
+      if (!isPinOnlyUpdate && !isReRequest) {
         return NextResponse.json(
-          { error: 'PIN 코드만 수정할 수 있습니다.' },
+          { error: '이 작업을 수행할 권한이 없습니다.' },
           { status: 403 }
         );
       }
@@ -180,9 +182,17 @@ export async function PATCH(
       newPinCode = (data.pin_code === '' || data.pin_code === null) ? null : data.pin_code;
     }
 
+    // rejection_reason 처리: 거부 시 사유 저장, 승인/대기 시 null로 초기화
+    let rejectionReason = device.rejection_reason;
+    if (data.approval_status === 'rejected') {
+      rejectionReason = data.rejection_reason || null;
+    } else if (data.approval_status === 'approved' || data.approval_status === 'pending') {
+      rejectionReason = null;
+    }
+
     await execute(`
       UPDATE device
-      SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, approval_status = ?, updatedAt = ?
+      SET name = ?, location = ?, alias = ?, pin_code = ?, user_id = ?, approval_status = ?, rejection_reason = ?, updatedAt = ?
       WHERE id = ?
     `, [
       data.name || device.name,
@@ -191,6 +201,7 @@ export async function PATCH(
       newPinCode,
       data.user_id || device.user_id,
       data.approval_status || device.approval_status,
+      rejectionReason,
       now,
       device.id
     ]);
@@ -234,10 +245,13 @@ export async function DELETE(
       );
     }
 
-    // 슈퍼관리자만 디바이스 삭제 가능
-    if (userRole !== 'superadmin') {
+    // 슈퍼관리자 또는 본인 소유 디바이스 중 거부된 것만 삭제 가능
+    const isOwner = device.user_id === userId;
+    const isRejected = device.approval_status === 'rejected';
+
+    if (userRole !== 'superadmin' && !(isOwner && isRejected)) {
       return NextResponse.json(
-        { error: '슈퍼관리자만 디바이스를 삭제할 수 있습니다.' },
+        { error: '이 디바이스를 삭제할 권한이 없습니다.' },
         { status: 403 }
       );
     }

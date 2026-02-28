@@ -10,6 +10,12 @@ const nextConfig = {
     // 프로덕션 빌드 시 TypeScript 에러 무시
     ignoreBuildErrors: true,
   },
+  // 파일 업로드 크기 제한 증가 (100MB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
 };
 
 module.exports = nextConfig;

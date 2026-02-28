@@ -11,6 +11,7 @@ interface Device {
   pin_code: string;
   status: string;
   approval_status: 'pending' | 'approved' | 'rejected';
+  rejection_reason?: string | null;
   is_over_limit_request?: boolean | number;
   user_id: string;
   owner_username?: string;
@@ -67,6 +68,10 @@ export default function SuperAdminPage() {
   // 디바이스 미리보기
   const [previewDevice, setPreviewDevice] = useState<Device | null>(null);
 
+  // 디바이스 거부 사유 모달
+  const [rejectingDevice, setRejectingDevice] = useState<Device | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   const approvedUsers = users.filter(u => u.status === 'approved');
 
   const fetchUsers = async () => {
@@ -119,18 +124,34 @@ export default function SuperAdminPage() {
     finally { setActionLoading(null); }
   };
 
-  const handleRejectDevice = async (deviceId: string) => {
-    if (!confirm('이 디바이스 등록 요청을 거부하시겠습니까?')) return;
-    setActionLoading(deviceId);
+  // 거부 모달 열기
+  const handleOpenRejectModal = (device: Device) => {
+    setRejectingDevice(device);
+    setRejectionReason('');
+  };
+
+  // 실제 거부 처리
+  const handleConfirmRejectDevice = async () => {
+    if (!rejectingDevice) return;
+    setActionLoading(rejectingDevice.id);
     try {
-      const response = await fetch(`/api/devices/${deviceId}`, {
+      const response = await fetch(`/api/devices/${rejectingDevice.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approval_status: 'rejected' }),
+        body: JSON.stringify({
+          approval_status: 'rejected',
+          rejection_reason: rejectionReason || null
+        }),
       });
       if (response.ok) {
+        setRejectingDevice(null);
+        setRejectionReason('');
         fetchPendingDevices();
         fetchUsers();
+        // 확장된 사용자의 디바이스 목록 새로고침
+        if (expandedUserId) {
+          fetchUserDevices(expandedUserId);
+        }
       } else {
         const data = await response.json();
         alert(data.error || '디바이스 거부 실패');
@@ -286,15 +307,18 @@ export default function SuperAdminPage() {
     try {
       const response = await fetch(`/api/devices/${device.id}`, { method: 'DELETE' });
       if (response.ok) {
-        fetchUsers();
+        // 로컬 상태에서 직접 해당 디바이스 제거 (즉시 UI 업데이트)
         setUserDevices(prev => {
           const updated = { ...prev };
-          delete updated[device.user_id];
+          if (updated[device.user_id]) {
+            updated[device.user_id] = updated[device.user_id].filter(d => d.id !== device.id);
+          }
           return updated;
         });
-        if (expandedUserId === device.user_id) {
-          await fetchUserDevices(device.user_id);
-        }
+        // 승인 대기 목록에서도 제거
+        setPendingDevices(prev => prev.filter(d => d.id !== device.id));
+        // 사용자 목록 새로고침 (디바이스 카운트 갱신)
+        fetchUsers();
       } else {
         const data = await response.json();
         alert(data.error || '디바이스 삭제 실패');
@@ -699,7 +723,7 @@ export default function SuperAdminPage() {
                         승인
                       </button>
                       <button
-                        onClick={() => handleRejectDevice(device.id)}
+                        onClick={() => handleOpenRejectModal(device)}
                         disabled={actionLoading === device.id}
                         className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50 font-medium"
                       >
@@ -1014,12 +1038,24 @@ export default function SuperAdminPage() {
                                           위치: {device.location} | PIN: <span className="font-mono font-bold">{device.pin_code}</span>
                                         </p>
                                       </div>
-                                      <div className={`px-2 py-1 rounded text-xs font-medium ${
-                                        device.status === 'online'
-                                          ? 'bg-green-100 text-green-700'
-                                          : 'bg-gray-100 text-gray-600'
-                                      }`}>
-                                        {device.status === 'online' ? '온라인' : '오프라인'}
+                                      <div className="flex items-center space-x-2">
+                                        {device.approval_status === 'rejected' && (
+                                          <div className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
+                                            거부됨
+                                          </div>
+                                        )}
+                                        {device.approval_status === 'pending' && (
+                                          <div className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
+                                            승인대기
+                                          </div>
+                                        )}
+                                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                                          device.status === 'online'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                          {device.status === 'online' ? '온라인' : '오프라인'}
+                                        </div>
                                       </div>
                                       <div className="flex space-x-1">
                                         <button
@@ -1160,6 +1196,72 @@ export default function SuperAdminPage() {
                 className="w-full h-full rounded-lg border-4 border-gray-700"
                 title={`${previewDevice.name} 미리보기`}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 디바이스 거부 사유 입력 모달 */}
+      {rejectingDevice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">디바이스 등록 거부</h3>
+                <p className="text-sm text-gray-500">{rejectingDevice.name}</p>
+              </div>
+            </div>
+
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">위치:</span> {rejectingDevice.location}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">별칭:</span> /{rejectingDevice.alias}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">요청자:</span> {rejectingDevice.owner_name || rejectingDevice.owner_username || '알 수 없음'}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                거부 사유 (선택)
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                rows={3}
+                placeholder="예: 별칭이 이미 사용중입니다. 다른 별칭으로 재요청해주세요."
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                사용자가 거부 사유를 확인할 수 있습니다.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleConfirmRejectDevice}
+                disabled={actionLoading === rejectingDevice.id}
+                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition font-medium disabled:opacity-50"
+              >
+                {actionLoading === rejectingDevice.id ? '처리 중...' : '거부 확인'}
+              </button>
+              <button
+                onClick={() => {
+                  setRejectingDevice(null);
+                  setRejectionReason('');
+                }}
+                className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium"
+              >
+                취소
+              </button>
             </div>
           </div>
         </div>

@@ -57,7 +57,12 @@ const httpServer = http.createServer((req, res) => {
           console.log('=== 콘텐츠 업데이트 알림 ===');
           console.log('대상 디바이스:', deviceId);
 
-          const ws = deviceSockets.get(deviceId);
+          // globalThis의 deviceSockets를 우선 사용 (WebSocket 연결이 실제로 저장되는 곳)
+          const activeSockets = (globalThis as any).deviceSockets || deviceSockets;
+          console.log('현재 연결된 디바이스 수:', activeSockets.size);
+          console.log('연결된 디바이스 목록:', Array.from(activeSockets.keys()));
+
+          const ws = activeSockets.get(deviceId);
           if (ws && ws.readyState === WebSocket.OPEN) {
             const message = JSON.stringify({ type: 'contentUpdate' });
             ws.send(message);

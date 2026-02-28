@@ -25,6 +25,17 @@ const CONTENT_TYPES = [
   { value: 'text', label: '텍스트' },
 ];
 
+// 파일 크기 제한 (바이트 단위)
+const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
+
+// 파일 크기 포맷팅
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+};
+
 // 시간 변환 유틸리티
 const secondsToHMS = (totalSeconds: number) => {
   const hours = Math.floor(totalSeconds / 3600);
@@ -205,10 +216,15 @@ export default function ContentLibrary() {
           if (response.ok) {
             successCount++;
           } else {
-            failedFiles.push(file.name);
+            const errorData = await response.json().catch(() => ({}));
+            const errMsg = errorData.error || `HTTP ${response.status}`;
+            console.error(`업로드 실패 [${file.name}]:`, errMsg);
+            failedFiles.push(`${file.name} (${errMsg})`);
           }
-        } catch {
-          failedFiles.push(file.name);
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : '네트워크 오류';
+          console.error(`업로드 예외 [${file.name}]:`, err);
+          failedFiles.push(`${file.name} (${errMsg})`);
         }
       }
 
@@ -658,9 +674,30 @@ export default function ContentLibrary() {
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
                       if (files.length > 0) {
-                        setUploadFiles(files);
-                        if (files.length === 1 && !uploadName) {
-                          setUploadName(files[0].name.replace(/\.[^/.]+$/, ''));
+                        // 파일 크기 검증
+                        const oversizedFiles: string[] = [];
+                        const validFiles: File[] = [];
+
+                        files.forEach(file => {
+                          const isImage = file.type.startsWith('image/');
+                          const isVideo = file.type.startsWith('video/');
+                          const maxSize = isImage ? MAX_IMAGE_SIZE : isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+
+                          if (file.size > maxSize) {
+                            const limitText = isImage ? '30MB' : '100MB';
+                            oversizedFiles.push(`${file.name} (${formatFileSize(file.size)} - 제한: ${limitText})`);
+                          } else {
+                            validFiles.push(file);
+                          }
+                        });
+
+                        if (oversizedFiles.length > 0) {
+                          alert(`파일 크기 초과:\n${oversizedFiles.join('\n')}\n\n이미지: 30MB 이하\n동영상: 100MB 이하`);
+                        }
+
+                        setUploadFiles(validFiles);
+                        if (validFiles.length === 1 && !uploadName) {
+                          setUploadName(validFiles[0].name.replace(/\.[^/.]+$/, ''));
                         }
                       }
                     }}
@@ -675,6 +712,11 @@ export default function ContentLibrary() {
                       ? '클릭하여 파일 선택 (이미지/동영상)'
                       : `${uploadFiles.length}개 파일 선택됨`}
                   </button>
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                      📁 파일 크기 제한: 이미지 30MB 이하, 동영상 100MB 이하
+                    </p>
+                  </div>
                   {uploadFiles.length > 0 && (
                     <div className="mt-2 max-h-32 overflow-y-auto">
                       <div className="space-y-1">

@@ -14,7 +14,11 @@ type Content = {
   name: string;
   type: string;
   url: string | null;
+  text: string | null;
   duration: number;
+  fontSize?: string | null;
+  fontColor?: string | null;
+  backgroundColor?: string | null;
   linkedDeviceCount?: number;
 };
 
@@ -311,9 +315,28 @@ export default function DeviceContentLinker() {
         </div>
       );
     }
+    // 텍스트 콘텐츠 미리보기
+    if (content.type === 'text' && content.text) {
+      const bgColor = content.backgroundColor || '#1a1a2e';
+      const textColor = content.fontColor || '#ffffff';
+      return (
+        <div
+          className={`${sizeClass} flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center p-1`}
+          style={{ backgroundColor: bgColor }}
+        >
+          <span
+            className="text-[8px] leading-tight text-center line-clamp-3 break-all"
+            style={{ color: textColor }}
+          >
+            {content.text.length > 30 ? content.text.substring(0, 30) + '...' : content.text}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div className={`${sizeClass} flex-shrink-0 rounded-lg bg-gray-100 flex items-center justify-center`}>
-        <span>{content.type === 'text' ? '📝' : '📄'}</span>
+        <span>📄</span>
       </div>
     );
   };

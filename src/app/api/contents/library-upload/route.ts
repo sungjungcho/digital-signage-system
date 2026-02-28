@@ -5,6 +5,10 @@ import path from 'path';
 import { execute, queryOne } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
+// App Router 설정
+export const maxDuration = 60; // 최대 실행 시간 60초
+export const dynamic = 'force-dynamic';
+
 function getContentType(file: File): 'image' | 'video' | null {
   const mimeType = (file.type || '').toLowerCase();
   if (mimeType.startsWith('image/')) return 'image';
@@ -22,11 +26,14 @@ function getContentType(file: File): 'image' | 'video' | null {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('=== 파일 업로드 요청 시작 ===');
   try {
     const user = await getCurrentUser();
     if (!user) {
+      console.log('업로드 실패: 인증 없음');
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
     }
+    console.log('인증 확인:', user.userId);
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -35,8 +42,15 @@ export async function POST(request: NextRequest) {
     const backgroundColor = formData.get('backgroundColor') as string || null;
 
     if (!file) {
+      console.log('업로드 실패: 파일 없음');
       return NextResponse.json({ error: '파일이 필요합니다.' }, { status: 400 });
     }
+
+    console.log('파일 정보:', {
+      name: file.name,
+      type: file.type,
+      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
+    });
 
     // 파일 타입 확인 (mime 우선, 확장자 fallback)
     const contentType = getContentType(file);
@@ -61,6 +75,7 @@ export async function POST(request: NextRequest) {
 
     const filePath = path.join(uploadDir, uniqueFileName);
     await writeFile(filePath, buffer);
+    console.log('파일 저장 완료:', filePath);
 
     // DB에 콘텐츠 저장
     const contentId = randomUUID();
@@ -90,12 +105,17 @@ export async function POST(request: NextRequest) {
     ]);
 
     const newContent = await queryOne('SELECT * FROM content WHERE id = ?', [contentId]);
+    console.log('DB 저장 완료:', contentId);
 
     return NextResponse.json(newContent, { status: 201 });
   } catch (error) {
-    console.error('파일 업로드 오류:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('=== 파일 업로드 오류 ===');
+    console.error('메시지:', errorMessage);
+    console.error('스택:', errorStack);
     return NextResponse.json(
-      { error: '파일 업로드 중 오류가 발생했습니다.' },
+      { error: `파일 업로드 실패: ${errorMessage}` },
       { status: 500 }
     );
   }

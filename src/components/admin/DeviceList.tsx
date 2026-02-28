@@ -24,10 +24,79 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
   const [newPinCode, setNewPinCode] = useState('');
   const [pinSaving, setPinSaving] = useState(false);
 
+  // 거부 사유 모달
+  const [showRejectReasonModal, setShowRejectReasonModal] = useState(false);
+  const [selectedRejectedDevice, setSelectedRejectedDevice] = useState<Device | null>(null);
+
+  // 재요청 처리 중
+  const [reRequestingDeviceId, setReRequestingDeviceId] = useState<string | null>(null);
+
   const handleOpenPinModal = (device: Device) => {
     setSelectedDeviceForPin(device);
     setNewPinCode(device.pin_code || '');
     setShowPinModal(true);
+  };
+
+  // 거부 사유 모달 열기
+  const handleOpenRejectReasonModal = (device: Device) => {
+    setSelectedRejectedDevice(device);
+    setShowRejectReasonModal(true);
+  };
+
+  // 거부된 디바이스 삭제
+  const handleDeleteRejectedDevice = async (deviceId: string, deviceName: string) => {
+    if (!window.confirm(`'${deviceName}' 등록 요청을 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    setDeletingDeviceId(deviceId);
+    try {
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        alert('등록 요청이 삭제되었습니다.');
+        onDeviceDeleted();
+      } else {
+        const error = await response.json();
+        alert(`삭제 실패: ${error.error || '알 수 없는 오류가 발생했습니다.'}`);
+      }
+    } catch (error) {
+      console.error('디바이스 삭제 중 오류 발생:', error);
+      alert('삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeletingDeviceId(null);
+    }
+  };
+
+  // 재요청 (pending으로 변경)
+  const handleReRequest = async (deviceId: string) => {
+    if (!window.confirm('이 디바이스를 다시 승인 요청하시겠습니까?')) {
+      return;
+    }
+
+    setReRequestingDeviceId(deviceId);
+    try {
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_status: 'pending' }),
+      });
+
+      if (response.ok) {
+        alert('재요청이 완료되었습니다. 관리자 승인을 기다려주세요.');
+        onDeviceDeleted();
+      } else {
+        const error = await response.json();
+        alert(`재요청 실패: ${error.error || '알 수 없는 오류가 발생했습니다.'}`);
+      }
+    } catch (error) {
+      console.error('재요청 중 오류 발생:', error);
+      alert('재요청 중 오류가 발생했습니다.');
+    } finally {
+      setReRequestingDeviceId(null);
+    }
   };
 
   const handleClosePinModal = () => {
@@ -235,9 +304,16 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                     </div>
                   )}
                   {device.approval_status === 'rejected' && (
-                    <div className="px-2 py-1 rounded text-sm bg-red-100 text-red-800">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenRejectReasonModal(device);
+                      }}
+                      className="px-2 py-1 rounded text-sm bg-red-100 text-red-800 hover:bg-red-200 transition cursor-pointer"
+                      title="거부 사유 보기"
+                    >
                       거부됨
-                    </div>
+                    </button>
                   )}
                   {/* 온라인 상태 (승인된 경우만) */}
                   {(device.approval_status === 'approved' || !device.approval_status) && (
@@ -249,17 +325,46 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                       {device.status === 'online' ? '온라인' : '오프라인'}
                     </div>
                   )}
-                  {/* PIN 버튼 - 모든 사용자에게 표시 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenPinModal(device);
-                    }}
-                    className="px-2 py-1 text-base text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
-                    title="PIN 코드 변경"
-                  >
-                    PIN
-                  </button>
+                  {/* 거부된 디바이스에 대한 재요청/삭제 버튼 */}
+                  {device.approval_status === 'rejected' && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReRequest(device.id);
+                        }}
+                        disabled={reRequestingDeviceId === device.id}
+                        className="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:opacity-50"
+                        title="다시 승인 요청"
+                      >
+                        {reRequestingDeviceId === device.id ? '요청 중...' : '재요청'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteRejectedDevice(device.id, device.name);
+                        }}
+                        disabled={deletingDeviceId === device.id}
+                        className="px-2 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded disabled:opacity-50"
+                        title="등록 요청 삭제"
+                      >
+                        {deletingDeviceId === device.id ? '삭제 중...' : '삭제'}
+                      </button>
+                    </>
+                  )}
+                  {/* PIN 버튼 - 승인된 디바이스만 */}
+                  {(device.approval_status === 'approved' || !device.approval_status) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenPinModal(device);
+                      }}
+                      className="px-2 py-1 text-base text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
+                      title="PIN 코드 변경"
+                    >
+                      PIN
+                    </button>
+                  )}
                   {isSuperAdmin && (
                     <>
                       <button
@@ -343,6 +448,83 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
                 {pinSaving ? '저장 중...' : (newPinCode === '' ? 'PIN 해제' : 'PIN 코드 변경')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 거부 사유 모달 */}
+      {showRejectReasonModal && selectedRejectedDevice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">등록 거부됨</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRejectReasonModal(false);
+                  setSelectedRejectedDevice(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">디바이스:</span> {selectedRejectedDevice.name}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">위치:</span> {selectedRejectedDevice.location}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">별칭:</span> /{selectedRejectedDevice.alias}
+              </p>
+            </div>
+
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm font-medium text-red-800 mb-1">거부 사유</p>
+              <p className="text-sm text-red-700">
+                {selectedRejectedDevice.rejection_reason || '거부 사유가 명시되지 않았습니다.'}
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowRejectReasonModal(false);
+                  setSelectedRejectedDevice(null);
+                  handleReRequest(selectedRejectedDevice.id);
+                }}
+                disabled={reRequestingDeviceId === selectedRejectedDevice.id}
+                className="flex-1 py-2.5 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 font-medium"
+              >
+                재요청
+              </button>
+              <button
+                onClick={() => {
+                  setShowRejectReasonModal(false);
+                  setSelectedRejectedDevice(null);
+                  handleDeleteRejectedDevice(selectedRejectedDevice.id, selectedRejectedDevice.name);
+                }}
+                disabled={deletingDeviceId === selectedRejectedDevice.id}
+                className="flex-1 py-2.5 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 font-medium"
+              >
+                삭제
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-gray-500 text-center">
+              재요청 시 관리자의 승인을 다시 기다려야 합니다.
+            </p>
           </div>
         </div>
       )}

@@ -161,8 +161,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * 정적 파일과 Next.js 내부 경로 제외
+     * 정적 파일, Next.js 내부 경로, 업로드 경로 제외
+     * 업로드 경로는 body 크기 제한 문제로 미들웨어에서 제외 (라우트에서 직접 인증 처리)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/contents/library-upload|api/contents/upload|api/uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
   ],
 };
