@@ -53,3 +53,10 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Build files
+dist/
+
+# Backup files
+*.backup.sql
+signage_backup.sql
