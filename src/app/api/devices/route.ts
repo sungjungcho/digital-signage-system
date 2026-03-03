@@ -8,6 +8,11 @@ function isValidPinCode(pin: string): boolean {
   return /^\d{4}$/.test(pin);
 }
 
+// 별칭 유효성 검사: 영문 소문자, 숫자, 하이픈(-), 언더바(_)
+function isValidAlias(alias: string): boolean {
+  return /^[a-z0-9_-]+$/.test(alias);
+}
+
 export async function GET() {
   try {
     const headersList = await headers();
@@ -138,8 +143,18 @@ export async function POST(req: Request) {
       alias = 'device-' + deviceId.substring(0, 8);
     }
 
-    // alias 중복 체크
-    const existingAlias = await queryOne('SELECT id FROM device WHERE alias = ?', [alias]);
+    if (!isValidAlias(alias)) {
+      return NextResponse.json(
+        { error: '별칭은 영문 소문자, 숫자, 하이픈(-), 언더바(_)만 사용할 수 있습니다.' },
+        { status: 400 }
+      );
+    }
+
+    // alias 중복 체크 (같은 사용자 내에서만 중복 불가)
+    const existingAlias = await queryOne(
+      'SELECT id FROM device WHERE alias = ? AND user_id = ?',
+      [alias, assignUserId]
+    );
     if (existingAlias) {
       return NextResponse.json(
         { error: '이미 사용 중인 별칭입니다.' },

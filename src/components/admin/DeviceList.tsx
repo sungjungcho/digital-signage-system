@@ -153,8 +153,8 @@ export default function DeviceList({ devices, onDeviceSelect, onDeviceDeleted, u
       alert('별칭을 입력해주세요.');
       return;
     }
-    if (!/^[a-zA-Z0-9가-힣\-]+$/.test(editedAlias)) {
-      alert('별칭은 영문, 숫자, 한글, 하이픈(-)만 사용할 수 있습니다.');
+    if (!/^[a-zA-Z0-9가-힣_-]+$/.test(editedAlias)) {
+      alert('별칭은 영문, 숫자, 한글, 하이픈(-), 언더바(_)만 사용할 수 있습니다.');
       return;
     }
     // PIN은 빈 값(해제) 또는 4자리 숫자만 허용

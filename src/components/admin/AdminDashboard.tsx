@@ -229,8 +229,8 @@ export default function AdminDashboard() {
       setDeviceFormError('설치 위치를 입력해주세요.');
       return;
     }
-    if (deviceForm.alias && !/^[a-z0-9\-]+$/.test(deviceForm.alias)) {
-      setDeviceFormError('별칭은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.');
+    if (deviceForm.alias && !/^[a-z0-9_-]+$/.test(deviceForm.alias)) {
+      setDeviceFormError('별칭은 영문 소문자, 숫자, 하이픈(-), 언더바(_)만 사용할 수 있습니다.');
       return;
     }
 
