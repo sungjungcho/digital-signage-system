@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAlert, getAlertsForDevice, removeAlert } from '@/lib/alertStore';
 
+const BROADCAST_URL = process.env.WS_BROADCAST_URL || 'http://127.0.0.1:3032/broadcast';
+
 // POST /api/alerts
 export async function POST(req: NextRequest) {
   const { message, targetDeviceIds, expiresAt, duration } = await req.json();
@@ -11,7 +13,7 @@ export async function POST(req: NextRequest) {
 
   // WebSocket 서버의 HTTP API를 통해 알림 전송
   try {
-    const response = await fetch('http://localhost:3032/broadcast', {
+    const response = await fetch(BROADCAST_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'alert', data: { alert } }),
@@ -19,9 +21,17 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       console.error('WebSocket 서버로 알림 전송 실패:', response.status);
+      return NextResponse.json(
+        { error: '브로드캐스트 서버 응답 오류', details: `status=${response.status}` },
+        { status: 503 }
+      );
     }
   } catch (error) {
     console.error('WebSocket 서버 연결 오류:', error);
+    return NextResponse.json(
+      { error: '브로드캐스트 서버 연결 실패' },
+      { status: 503 }
+    );
   }
 
   return NextResponse.json(alert);

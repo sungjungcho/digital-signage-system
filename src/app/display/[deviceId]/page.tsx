@@ -43,6 +43,31 @@ const normalizeDurationMs = (content: DeviceContent): number => {
   return raw < 1000 ? raw * 1000 : raw;
 };
 
+function buildWsUrl(deviceId: string): string {
+  const configuredBase = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  if (configuredBase) {
+    try {
+      const baseUrl = new URL(configuredBase);
+      const browserHost = window.location.hostname;
+      const isConfiguredLocalhost = ['localhost', '127.0.0.1'].includes(baseUrl.hostname);
+      const isBrowserLocalhost = ['localhost', '127.0.0.1'].includes(browserHost);
+
+      // 외부 단말에서 localhost WS 설정이 강제되면 연결에 실패하므로 자동 무시
+      if (isConfiguredLocalhost && !isBrowserLocalhost) {
+        throw new Error('localhost WS URL ignored for remote client');
+      }
+
+      baseUrl.searchParams.set('deviceId', deviceId);
+      return baseUrl.toString();
+    } catch (error) {
+      console.error('[WebSocket] NEXT_PUBLIC_WS_URL 설정이 올바르지 않습니다:', error);
+    }
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${protocol}://${window.location.hostname}:3031?deviceId=${deviceId}`;
+}
+
 // 단일 콘텐츠 렌더링 컴포넌트
 function ContentRenderer({
   content,
@@ -300,7 +325,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     const connect = () => {
       if (isCleanedUp) return;
 
-      const wsUrl = `ws://${window.location.hostname}:3031?deviceId=${realDeviceId}`;
+      const wsUrl = buildWsUrl(realDeviceId);
 
       try {
         const ws = new window.WebSocket(wsUrl);

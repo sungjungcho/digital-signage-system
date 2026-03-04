@@ -64,7 +64,8 @@
    docker run -d \
      --name digital-signage-app \
      -p 3000:3000 \
-     -p 8080:8080 \
+     -p 3031:3031 \
+     -p 3032:3032 \
      -v signage-data:/app/data \
      -v signage-uploads:/app/public/uploads \
      digital-signage
@@ -198,7 +199,8 @@ docker-compose down
 # 다른 포트 사용 (docker-compose.yml 수정)
 ports:
   - "3001:3000"  # 3001로 변경
-  - "8081:8080"  # 8081로 변경
+  - "3033:3031"  # WebSocket 포트 변경 예시
+  - "3034:3032"  # Broadcast 포트 변경 예시
 ```
 
 ### 2. Docker Desktop이 실행되지 않습니다
@@ -256,7 +258,7 @@ docker-compose logs -f digital-signage
 ## 🔐 보안 권장사항
 
 1. **외부 접속 허용 시**
-   - Windows 방화벽에서 포트 3000, 8080 허용
+   - Windows 방화벽에서 포트 3000, 3031, 3032 허용
    - 공유기에서 포트 포워딩 설정 (필요 시)
 
 2. **비밀번호 설정**

@@ -49,7 +49,8 @@ RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
 USER nextjs
 
 EXPOSE 3000
-EXPOSE 8080
+EXPOSE 3031
+EXPOSE 3032
 
 # Initialize database and start services (WebSocket server as JavaScript)
 CMD ["sh", "-c", "node scripts/init-db.js && node server.js & node wsServerEntry.js"]

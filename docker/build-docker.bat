@@ -27,7 +27,7 @@ if %errorlevel% equ 0 (
     echo   docker-compose up -d
     echo.
     echo 또는:
-    echo   docker run -d -p 3000:3000 -p 8080:8080 digital-signage:%VERSION%
+    echo   docker run -d -p 3000:3000 -p 3031:3031 -p 3032:3032 digital-signage:%VERSION%
     echo.
 ) else (
     echo.
