@@ -65,6 +65,10 @@ function buildWsUrl(deviceId: string): string {
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  // HTTPS에서는 nginx 프록시 경로(/ws) 사용, HTTP에서는 직접 포트 연결
+  if (window.location.protocol === 'https:') {
+    return `${protocol}://${window.location.hostname}/ws?deviceId=${deviceId}`;
+  }
   return `${protocol}://${window.location.hostname}:3031?deviceId=${deviceId}`;
 }
 
