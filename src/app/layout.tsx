@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "디지털 사이니지 시스템",
   description: "Next.js 기반의 디지털 사이니지 시스템",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
