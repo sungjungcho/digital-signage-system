@@ -113,53 +113,53 @@ export default function MobileMessenger() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-800 to-slate-900">
       {/* 헤더 */}
-      <header className="bg-white/10 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
+      <header className="bg-slate-700/80 backdrop-blur-sm px-5 py-4 flex items-center justify-between shadow-lg">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </div>
-          <h1 className="text-lg font-bold text-white">긴급 알림</h1>
+          <h1 className="text-xl font-bold text-white">긴급 알림</h1>
         </div>
         <button
           onClick={handleLogout}
-          className="px-3 py-2 bg-white/20 rounded-xl text-white text-sm font-medium"
+          className="px-4 py-2.5 bg-slate-600 rounded-xl text-white text-base font-semibold shadow"
         >
           로그아웃
         </button>
       </header>
 
       {/* 메인 콘텐츠 */}
-      <main className="flex-1 p-4 space-y-4">
+      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
         {/* 메시지 입력 */}
-        <div className="bg-white rounded-2xl shadow-lg p-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <div className="bg-white rounded-2xl shadow-xl p-5">
+          <label className="block text-base font-bold text-gray-800 mb-3">
             알림 메시지
           </label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none text-base"
+            className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-lg text-gray-900 placeholder-gray-400"
             rows={3}
             placeholder="전송할 메시지를 입력하세요"
           />
         </div>
 
         {/* 표시 시간 */}
-        <div className="bg-white rounded-2xl shadow-lg p-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <div className="bg-white rounded-2xl shadow-xl p-5">
+          <label className="block text-base font-bold text-gray-800 mb-3">
             표시 시간
           </label>
-          <div className="flex space-x-2">
+          <div className="flex space-x-3">
             {[
               { value: 5000, label: '5초' },
               { value: 10000, label: '10초' },
@@ -168,10 +168,10 @@ export default function MobileMessenger() {
               <button
                 key={opt.value}
                 onClick={() => setDuration(opt.value)}
-                className={`flex-1 py-3 rounded-xl font-medium transition ${
+                className={`flex-1 py-4 rounded-xl text-lg font-bold transition ${
                   duration === opt.value
-                    ? 'bg-teal-500 text-white'
-                    : 'bg-gray-100 text-gray-700'
+                    ? 'bg-red-500 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 border-2 border-gray-200'
                 }`}
               >
                 {opt.label}
@@ -181,17 +181,17 @@ export default function MobileMessenger() {
         </div>
 
         {/* 디바이스 선택 */}
-        <div className="bg-white rounded-2xl shadow-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-semibold text-gray-700">
+        <div className="bg-white rounded-2xl shadow-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <label className="text-base font-bold text-gray-800">
               대상 디바이스
             </label>
             <button
               onClick={handleSelectAll}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+              className={`px-4 py-2.5 rounded-xl text-base font-bold transition ${
                 selectedDevices.length === devices.length && devices.length > 0
-                  ? 'bg-teal-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-red-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 border-2 border-gray-200'
               }`}
             >
               전체 선택
@@ -199,33 +199,33 @@ export default function MobileMessenger() {
           </div>
 
           {devices.length === 0 ? (
-            <p className="text-center text-gray-400 py-4">등록된 디바이스가 없습니다</p>
+            <p className="text-center text-gray-500 py-6 text-lg">등록된 디바이스가 없습니다</p>
           ) : (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-3 max-h-60 overflow-y-auto">
               {devices.map((device) => (
                 <button
                   key={device.id}
                   onClick={() => handleToggleDevice(device.id)}
-                  className={`w-full flex items-center p-3 rounded-xl transition ${
+                  className={`w-full flex items-center p-4 rounded-xl transition ${
                     selectedDevices.includes(device.id)
-                      ? 'bg-teal-50 border-2 border-teal-500'
-                      : 'bg-gray-50 border-2 border-transparent'
+                      ? 'bg-red-50 border-3 border-red-500 shadow-md'
+                      : 'bg-gray-50 border-2 border-gray-200'
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${
+                  <div className={`w-7 h-7 rounded-full border-3 flex items-center justify-center mr-4 flex-shrink-0 ${
                     selectedDevices.includes(device.id)
-                      ? 'bg-teal-500 border-teal-500'
-                      : 'border-gray-300'
+                      ? 'bg-red-500 border-red-500'
+                      : 'border-gray-400 bg-white'
                   }`}>
                     {selectedDevices.includes(device.id) && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     )}
                   </div>
                   <div className="text-left">
-                    <p className="font-medium text-gray-800">{device.name}</p>
-                    <p className="text-xs text-gray-500">{device.location}</p>
+                    <p className="text-lg font-bold text-gray-900">{device.name}</p>
+                    <p className="text-sm text-gray-600 font-medium">{device.location}</p>
                   </div>
                 </button>
               ))}
@@ -235,22 +235,22 @@ export default function MobileMessenger() {
 
         {/* 결과 메시지 */}
         {result && (
-          <div className={`p-4 rounded-2xl ${
+          <div className={`p-5 rounded-2xl shadow-lg ${
             result.type === 'success'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-red-100 text-red-800'
+              ? 'bg-green-500 text-white'
+              : 'bg-red-600 text-white'
           }`}>
-            <p className="text-center font-medium">{result.message}</p>
+            <p className="text-center font-bold text-lg">{result.message}</p>
           </div>
         )}
       </main>
 
       {/* 하단 버튼 */}
-      <div className="p-4 bg-white/10 backdrop-blur-sm space-y-3">
+      <div className="p-4 bg-slate-800/90 backdrop-blur-sm space-y-3 border-t border-slate-700">
         <button
           onClick={handleSendAlert}
           disabled={sending || !message.trim() || selectedDevices.length === 0}
-          className="w-full py-4 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-2xl font-bold text-lg shadow-lg disabled:opacity-50 active:scale-[0.98] transition"
+          className="w-full py-5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-black text-xl shadow-lg disabled:opacity-40 active:scale-[0.98] transition"
         >
           {sending ? '전송 중...' : '알림 전송'}
         </button>
@@ -258,7 +258,7 @@ export default function MobileMessenger() {
         <button
           onClick={handleCloseAlert}
           disabled={sending || selectedDevices.length === 0}
-          className="w-full py-3 bg-white/20 text-white rounded-2xl font-medium disabled:opacity-50 active:scale-[0.98] transition"
+          className="w-full py-4 bg-slate-600 text-white rounded-2xl font-bold text-lg disabled:opacity-40 active:scale-[0.98] transition"
         >
           알림 닫기
         </button>
