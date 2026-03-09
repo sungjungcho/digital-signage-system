@@ -13,6 +13,8 @@ services:
     volumes:
       - signage-data:/app/data          # 데이터베이스 저장
       - signage-uploads:/app/public/uploads  # 업로드된 파일 저장
+      - signage-images:/app/public/images    # 이미지 파일 저장
+      - signage-videos:/app/public/videos    # 동영상 파일 저장
     environment:
       - NODE_ENV=production
     extra_hosts:
@@ -29,4 +31,8 @@ volumes:
   signage-data:
     driver: local
   signage-uploads:
+    driver: local
+  signage-images:
+    driver: local
+  signage-videos:
     driver: local

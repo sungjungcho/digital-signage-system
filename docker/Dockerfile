@@ -43,8 +43,9 @@ COPY --from=builder /app/node_modules ./node_modules
 # Create data directory for database (will be mounted as volume)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
-# Create uploads directory
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
+# Create uploads, images, videos directories
+RUN mkdir -p /app/public/uploads /app/public/images /app/public/videos && \
+    chown -R nextjs:nodejs /app/public/uploads /app/public/images /app/public/videos
 
 USER nextjs
 
