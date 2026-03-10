@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import type { devicecontent as DeviceContent } from "@/types/device";
 import { LAYOUT_TEMPLATES, LayoutTemplateId } from "@/types/layout";
 import YoutubePlayer from "@/components/YoutubePlayer";
@@ -155,9 +156,11 @@ function ContentRenderer({
 }
 
 // 영역별 콘텐츠 순환 컴포넌트
-function ZoneDisplay({ contents }: { contents: DeviceContent[] }) {
+function ZoneDisplay({ contents, showDebug, areaLabel }: { contents: DeviceContent[]; showDebug?: boolean; areaLabel?: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentContent = contents[currentIndex];
 
@@ -166,14 +169,32 @@ function ZoneDisplay({ contents }: { contents: DeviceContent[] }) {
   }, [contents.length]);
 
   useEffect(() => {
-    if (contents.length <= 1) return;
+    if (contents.length === 0) return;
 
     const currentContent = contents[currentIndex];
     const durationMs = normalizeDurationMs(currentContent);
 
+    // 남은 시간 초기화
+    setRemainingTime(Math.ceil(durationMs / 1000));
+
+    // 카운트다운 타이머 (디버그 모드용)
+    if (showDebug) {
+      countdownRef.current = setInterval(() => {
+        setRemainingTime((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    }
+
+    if (contents.length <= 1) {
+      return () => {
+        if (countdownRef.current) clearInterval(countdownRef.current);
+      };
+    }
+
     // 비디오 duration이 0이면 onEnded로 처리
     if (currentContent.type === 'video' && durationMs === 0) {
-      return;
+      return () => {
+        if (countdownRef.current) clearInterval(countdownRef.current);
+      };
     }
 
     timerRef.current = setTimeout(() => {
@@ -184,8 +205,11 @@ function ZoneDisplay({ contents }: { contents: DeviceContent[] }) {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
     };
-  }, [currentIndex, contents, goToNext]);
+  }, [currentIndex, contents, goToNext, showDebug]);
 
   if (contents.length === 0) {
     return (
@@ -195,16 +219,34 @@ function ZoneDisplay({ contents }: { contents: DeviceContent[] }) {
     );
   }
 
+  const durationMs = normalizeDurationMs(currentContent);
+  const totalSeconds = Math.ceil(durationMs / 1000);
+
   return (
-    <ContentRenderer
-      content={currentContent}
-      onVideoEnded={goToNext}
-    />
+    <div className="relative w-full h-full">
+      <ContentRenderer
+        content={currentContent}
+        onVideoEnded={goToNext}
+      />
+      {/* 디버그 오버레이 */}
+      {showDebug && (
+        <div className="absolute top-2 left-2 z-40 bg-black/80 text-white text-xs px-2 py-1 rounded font-mono">
+          <div className="text-cyan-400 font-bold">{areaLabel || 'Zone'}</div>
+          <div>콘텐츠: {currentIndex + 1}/{contents.length}</div>
+          <div>타입: {currentContent.type}</div>
+          <div>재생시간: {remainingTime}초 / {totalSeconds}초</div>
+          {currentContent.type === 'video' && durationMs === 0 && (
+            <div className="text-yellow-400">비디오 끝까지 재생</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 export default function DevicePreviewPage({ params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = use(params);
+  const searchParams = useSearchParams();
   const [alert, setAlert] = useState<Alert | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [allContents, setAllContents] = useState<ContentWithZone[]>([]);
@@ -227,6 +269,25 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
     notice_max_items: 3,
   });
   const [noticeIndex, setNoticeIndex] = useState(0);
+
+  // 디버그 모드 상태 (URL ?debug=1 또는 키보드 'd' 키로 토글)
+  const [debugMode, setDebugMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return searchParams?.get('debug') === '1';
+    }
+    return false;
+  });
+
+  // 키보드 'd' 키로 디버그 모드 토글
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'd' || e.key === 'D') {
+        setDebugMode(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const updateDeviceStatus = async (status: 'online' | 'offline') => {
     if (!realDeviceId) return;
@@ -597,7 +658,7 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
           gap: '2px',
         }}
       >
-        {template.areas.map(area => (
+        {template.areas.map((area, idx) => (
           <div
             key={area.id}
             style={{
@@ -606,7 +667,11 @@ export default function DevicePreviewPage({ params }: { params: Promise<{ device
               overflow: 'hidden',
             }}
           >
-            <ZoneDisplay contents={contentsByZone[area.id] || []} />
+            <ZoneDisplay
+              contents={contentsByZone[area.id] || []}
+              showDebug={debugMode}
+              areaLabel={area.name || `영역 ${idx + 1}`}
+            />
           </div>
         ))}
       </div>
